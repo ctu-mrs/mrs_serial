@@ -1,0 +1,10 @@
+<launch>
+
+  <!-- launch the node -->
+  <node name="garmin" pkg="garmin_rangefinder" type="garmin" output="screen" respawn="true">
+    <param name="portname" value="/dev/ttyUSB0"/>
+    <!-- Published topics -->
+    <remap from="range" to="~range" />
+
+  </node>
+</launch>
