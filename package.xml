@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package>
+  <name>garmin_rangefinder</name>
+  <version>0.0.1</version>
+  <description>driver for reading messages from garmin laser rangefinder</description>
+
+  <maintainer email="Tomas.baca@fel.cvut.cz">Tomas Baca</maintainer>
+  <maintainer email="vojtech.spurny@fel.cvut.cz">Vojtech Spurny</maintainer>
+
+  <license>MIT</license>
+
+  <author email="vojtech.spurny@fel.cvut.cz">Vojtech Spurny</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+ 
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+
+  <export>
+
+  </export>
+</package>
