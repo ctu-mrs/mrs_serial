@@ -12,11 +12,9 @@ Garmin::Garmin() {
 
   // Publishers
   range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
-
   netgun_arm       = nh_.advertiseService("netgun_arm", &Garmin::netgun_armCallback, this);
   netgun_safe      = nh_.advertiseService("netgun_safe", &Garmin::netgun_safeCallback, this);
   netgun_fire      = nh_.advertiseService("netgun_fire", &Garmin::netgun_fireCallback, this);
-
 
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -64,8 +62,8 @@ bool Garmin::netgun_armCallback(std_srvs::Trigger::Request &req, std_srvs::Trigg
   serial_port_->sendChar(tmpSend);
   serial_port_->sendChar(crc);
 
-  ROS_INFO("Safing net gun");
-  res.message = "Safing net gun";
+  ROS_INFO("Arming net gun");
+  res.message = "Arming net gun";
   res.success = true;
   return true;
 }
@@ -85,8 +83,8 @@ bool Garmin::netgun_fireCallback(std_srvs::Trigger::Request &req, std_srvs::Trig
   serial_port_->sendChar(tmpSend);
   serial_port_->sendChar(crc);
 
-  ROS_INFO("Safing net gun");
-  res.message = "Safing net gun";
+  ROS_INFO("Firing net gun");
+  res.message = "Firing net gun";
   res.success = true;
   return true;
 }
