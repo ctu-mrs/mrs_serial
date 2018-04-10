@@ -22,7 +22,6 @@ Garmin::Garmin() {
   uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::uvled_stopCallback, this);
   board_switch      = nh_.advertiseService("board_switch", &Garmin::board_switchCallback, this);
 
-
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO("[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
