@@ -102,7 +102,7 @@ bool Garmin::uvled_start_leftCallback(std_srvs::SetBool::Request &req, std_srvs:
   char crc     = tmpSend;
 
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = 2;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
@@ -110,11 +110,11 @@ bool Garmin::uvled_start_leftCallback(std_srvs::SetBool::Request &req, std_srvs:
   tmpSend = id;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = (uint8_t)req.data;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   serial_port_->sendChar(crc);
 
 
@@ -131,7 +131,7 @@ bool Garmin::uvled_start_rightCallback(std_srvs::SetBool::Request &req, std_srvs
   char crc     = tmpSend;
 
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = 2;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
@@ -139,11 +139,11 @@ bool Garmin::uvled_start_rightCallback(std_srvs::SetBool::Request &req, std_srvs
   tmpSend = id;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = (uint8_t)req.data;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   serial_port_->sendChar(crc);
 
 
@@ -180,7 +180,7 @@ bool Garmin::board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::Set
   char crc     = tmpSend;
 
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = 2;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
@@ -188,11 +188,11 @@ bool Garmin::board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::Set
   tmpSend = id;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   tmpSend = (uint8_t)req.data;
   crc += tmpSend;
   serial_port_->sendChar(tmpSend);
-  
+
   serial_port_->sendChar(crc);
 
 
@@ -200,7 +200,6 @@ bool Garmin::board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::Set
   res.message = "Output switched";
   res.success = true;
   return true;
-
 }
 uint8_t Garmin::connectToSensor(void) {
 
