@@ -1,12 +1,16 @@
 <launch>
 
+  <arg name="profiler" default="$(optenv PROFILER false)" />
+
   <!-- launch the node -->
   <node name="garmin" pkg="garmin_rangefinder" type="garmin" output="screen" respawn="true">
 
+    <param name="enable_profiler" type="bool" value="$(arg profiler)" />
     <param name="portname" value="/dev/garmin"/>
 
-    <!-- Published topics -->
+    <!-- Publishers -->
     <remap from="range" to="~range" />
+    <remap from="~profiler" to="profiler" />
 
   </node>
 </launch>
