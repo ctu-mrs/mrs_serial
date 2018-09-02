@@ -2,11 +2,17 @@
 
 #include <std_srvs/SetBool.h>
 #include <std_srvs/Trigger.h>
+
+#include <std_srvs/Trigger.h>
+
 #include "garmin/garmin.h"
 
 #define MAXIMAL_TIME_INTERVAL 1
 
+/* Garmin() //{ */
+
 Garmin::Garmin() {
+
   // Get paramters
   ros::NodeHandle private_node_handle_("~");
   private_node_handle_.param("portname", portname_, std::string("/dev/ttyUSB0"));
@@ -14,13 +20,13 @@ Garmin::Garmin() {
   // Publishers
   range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
 
-  netgun_arm        = nh_.advertiseService("netgun_arm", &Garmin::netgun_armCallback, this);
-  netgun_safe       = nh_.advertiseService("netgun_safe", &Garmin::netgun_safeCallback, this);
-  netgun_fire       = nh_.advertiseService("netgun_fire", &Garmin::netgun_fireCallback, this);
-  uvled_start_left  = nh_.advertiseService("uvled_start_left", &Garmin::uvled_start_leftCallback, this);
-  uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::uvled_start_rightCallback, this);
-  uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::uvled_stopCallback, this);
-  board_switch      = nh_.advertiseService("board_switch", &Garmin::board_switchCallback, this);
+  netgun_arm        = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
+  netgun_safe       = nh_.advertiseService("netgun_safe", &Garmin::callbackNetgunSafe, this);
+  netgun_fire       = nh_.advertiseService("netgun_fire", &Garmin::callbackNetgunFire, this);
+  uvled_start_left  = nh_.advertiseService("uvled_start_left", &Garmin::callbackUvLedStartLeft, this);
+  uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::callbackUvLedStartRight, this);
+  uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
+  board_switch      = nh_.advertiseService("board_switch", &Garmin::callbackBoardSwitch, this);
 
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -29,10 +35,24 @@ Garmin::Garmin() {
   connectToSensor();
 }
 
+//}
+
+/* ~Garmin() //{ */
+
 Garmin::~Garmin() {
 }
 
-bool Garmin::netgun_safeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+//}
+
+// --------------------------------------------------------------
+// |                          callbacks                         |
+// --------------------------------------------------------------
+
+// | ------------------------ services ------------------------ |
+
+/*  callbackNetgunSafe()//{ */
+
+bool Garmin::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '7';
   char tmpSend = 'a';
@@ -50,10 +70,15 @@ bool Garmin::netgun_safeCallback(std_srvs::Trigger::Request &req, std_srvs::Trig
   ROS_INFO("Safing net gun");
   res.message = "Safing net gun";
   res.success = true;
+
   return true;
 }
 
-bool Garmin::netgun_armCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+//}
+
+/* callbackNetgunArm() //{ */
+
+bool Garmin::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '8';
   char tmpSend = 'a';
@@ -71,10 +96,15 @@ bool Garmin::netgun_armCallback(std_srvs::Trigger::Request &req, std_srvs::Trigg
   ROS_INFO("Arming net gun");
   res.message = "Arming net gun";
   res.success = true;
+
   return true;
 }
 
-bool Garmin::netgun_fireCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+//}
+
+/* callbackNetgunFire() //{ */
+
+bool Garmin::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '9';
   char tmpSend = 'a';
@@ -95,7 +125,11 @@ bool Garmin::netgun_fireCallback(std_srvs::Trigger::Request &req, std_srvs::Trig
   return true;
 }
 
-bool Garmin::uvled_start_leftCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+//}
+
+/* callbackUvLedStartLeft() //{ */
+
+bool Garmin::callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '1';
   char tmpSend = 'a';
@@ -117,14 +151,17 @@ bool Garmin::uvled_start_leftCallback(std_srvs::SetBool::Request &req, std_srvs:
 
   serial_port_->sendChar(crc);
 
-
   ROS_INFO("Starting left UV leds. f: %d", req.data);
   res.message = "Starting left UV leds";
   res.success = true;
   return true;
 }
 
-bool Garmin::uvled_start_rightCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+//}
+
+/* callbackUvLedStartRight() //{ */
+
+bool Garmin::callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '2';
   char tmpSend = 'a';
@@ -146,14 +183,18 @@ bool Garmin::uvled_start_rightCallback(std_srvs::SetBool::Request &req, std_srvs
 
   serial_port_->sendChar(crc);
 
-
   ROS_INFO("Starting right UV leds. f: %d", req.data);
   res.message = "Starting right UV leds";
   res.success = true;
+
   return true;
 }
 
-bool Garmin::uvled_stopCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+//}
+
+/* callbackUvLedStop() //{ */
+
+bool Garmin::callbackUvLedStop([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '3';
   char tmpSend = 'a';
@@ -171,9 +212,15 @@ bool Garmin::uvled_stopCallback(std_srvs::Trigger::Request &req, std_srvs::Trigg
   ROS_INFO("Stopping UV LEDs");
   res.message = "Stopping UV LEDs";
   res.success = true;
+
   return true;
 }
-bool Garmin::board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+//}
+
+/* callbackBoardSwitch() //{ */
+
+bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '4';
   char tmpSend = 'a';
@@ -195,12 +242,21 @@ bool Garmin::board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::Set
 
   serial_port_->sendChar(crc);
 
-
   ROS_INFO("Switching output to: %d", req.data);
   res.message = "Output switched";
   res.success = true;
+
   return true;
 }
+
+//}
+
+// --------------------------------------------------------------
+// |                          routines                          |
+// --------------------------------------------------------------
+
+/* connectToSensors() //{ */
+
 uint8_t Garmin::connectToSensor(void) {
 
   // Create serial port
@@ -223,19 +279,27 @@ uint8_t Garmin::connectToSensor(void) {
   return 1;
 }
 
+//}
+
+/* releaseSerialLine() //{ */
+
 void Garmin::releaseSerialLine(void) {
 
   delete serial_port_;
 }
 
+//}
+
+/* serialDataCallback() //{ */
+
 void Garmin::serialDataCallback(uint8_t single_character) {
+
   static uint8_t input_buffer[BUFFER_SIZE];
   static int     buffer_ctr        = 0;
   static uint8_t crc_in            = 0;
   static int     payload_size      = 0;
   static int     receiver_state    = 0;
   static int     receiving_message = 0;
-
 
   if (receiving_message == 1) {
 
@@ -314,12 +378,21 @@ void Garmin::serialDataCallback(uint8_t single_character) {
   }
 }
 
+//}
+
+/* setMode() //{ */
+
 void Garmin::setMode(char c) {
+
   serial_port_->sendChar(c);
 }
 
+//}
+
+/* main() //{ */
 
 int main(int argc, char **argv) {
+
   ros::init(argc, argv, "Garmin");
   Garmin    garmin_sensor;
   ros::Rate loop_rate(1);
@@ -347,3 +420,5 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+
+//}
