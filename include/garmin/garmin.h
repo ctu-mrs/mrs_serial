@@ -32,14 +32,13 @@ public:
   ros::ServiceServer uvled_stop;
   ros::ServiceServer board_switch;
 
-  bool netgun_safeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool netgun_armCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool netgun_fireCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool uvled_start_leftCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool uvled_start_rightCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool uvled_stopCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool board_switchCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-
+  bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackUvLedStop(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   bool loadParameters();
   void setMode(char c);
