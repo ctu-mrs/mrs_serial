@@ -7,6 +7,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
 )
+
+set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
+
 # since we need boost search it as well
 # find_package makes the ${..._INCLUDE_DIRS} ${..._LIBRARIES} variables we use later
 find_package(Boost REQUIRED COMPONENTS system thread)
