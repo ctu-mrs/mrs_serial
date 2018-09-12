@@ -15,6 +15,9 @@ Garmin::Garmin() {
 
   // Get paramters
   ros::NodeHandle private_node_handle_("~");
+
+  ros::Time::waitForValid();
+
   private_node_handle_.param("portname", portname_, std::string("/dev/ttyUSB0"));
 
   // Publishers
@@ -31,6 +34,8 @@ Garmin::Garmin() {
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO("[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+
+  lastReceived = ros::Time::now();
 
   connectToSensor();
 }
@@ -267,12 +272,13 @@ uint8_t Garmin::connectToSensor(void) {
   serial_port_->setSerialCallbackFunction(&serial_data_callback_function_);
 
   // Connect serial port
+  ROS_INFO("[%s]: Openning the serial port.", ros::this_node::getName().c_str());
   if (!serial_port_->connect(portname_)) {
-    ROS_ERROR("Could not connect to sensor.");
+    ROS_ERROR("[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     return 0;
   }
 
-  ROS_INFO("Connected to sensor.");
+  ROS_INFO("[%s]: Connected to sensor.", ros::this_node::getName().c_str());
 
   lastReceived = ros::Time::now();
 
@@ -394,7 +400,9 @@ void Garmin::setMode(char c) {
 int main(int argc, char **argv) {
 
   ros::init(argc, argv, "Garmin");
-  Garmin    garmin_sensor;
+
+  Garmin garmin_sensor;
+
   ros::Rate loop_rate(1);
 
   while (ros::ok()) {
@@ -405,12 +413,12 @@ int main(int argc, char **argv) {
 
       garmin_sensor.releaseSerialLine();
 
-      ROS_WARN("Garmin not responding, resetting connection...");
+      ROS_WARN("[%s]: Garmin not responding, resetting connection...", ros::this_node::getName().c_str());
 
       // if establishing the new connection was successfull
       if (garmin_sensor.connectToSensor() == 1) {
 
-        ROS_WARN("New connection to Garmin was established.");
+        ROS_INFO("[%s]: New connection to Garmin was established.", ros::this_node::getName().c_str());
       }
     }
 

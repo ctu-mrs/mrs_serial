@@ -17,27 +17,26 @@
 namespace serial_device
 {
 
-  class SerialPort
-  {
-    public:
-      SerialPort();
-      virtual ~SerialPort();
+class SerialPort {
+public:
+  SerialPort();
+  virtual ~SerialPort();
 
-      bool connect(const std::string port);
-      void disconnect();
+  bool connect(const std::string port);
+  void disconnect();
 
-      bool sendChar(const char c);
+  bool sendChar(const char c);
 
-      void setSerialCallbackFunction(boost::function<void(uint8_t)> *f);
-      void serialThread();
+  void setSerialCallbackFunction(boost::function<void(uint8_t)> *f);
+  void serialThread();
 
-      int serial_port_fd_;
-      boost::thread serial_thread_;
-      bool serial_thread_should_exit_;
+  int           serial_port_fd_;
+  boost::thread serial_thread_;
+  bool          serial_thread_should_exit_;
 
-      boost::function<void(uint8_t)> * serial_callback_function;
-  };
+  boost::function<void(uint8_t)> *serial_callback_function;
+};
 
-} // namespace serial_device
+}  // namespace serial_device
 
 #endif  // SERIAL_PORT_H_

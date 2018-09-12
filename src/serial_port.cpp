@@ -16,13 +16,17 @@ SerialPort::~SerialPort() {
 }
 
 bool SerialPort::connect(const std::string port) {
+
   // Open serial port
   // O_RDWR - Read and write
   // O_NOCTTY - Ignore special chars like CTRL-C
-  serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY);
+
+  serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+
   if (serial_port_fd_ == -1) {
     ROS_ERROR("[%s] could not open serial port %s", ros::this_node::getName().c_str(), port.c_str());
     return false;
+
   } else {
     fcntl(serial_port_fd_, F_SETFL, 0);
   }
@@ -76,6 +80,7 @@ bool SerialPort::sendChar(const char c) {
   catch (int e) {
 
     ROS_WARN("Error while writing from sensor serial line!");
+    return false;
   }
 }
 
