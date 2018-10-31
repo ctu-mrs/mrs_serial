@@ -55,6 +55,10 @@ public:
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   std::string portname_;
+  
+  bool enable_servo_;
+  bool enable_uvleds_;
+  bool enable_switch_;
 };
 
 #endif  // GARMIN_H_

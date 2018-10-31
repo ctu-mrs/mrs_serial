@@ -19,22 +19,33 @@ Garmin::Garmin() {
   ros::Time::waitForValid();
 
   private_node_handle_.param("portname", portname_, std::string("/dev/ttyUSB0"));
-
+  private_node_handle_.param("enable_servo", enable_servo_, false);
+  private_node_handle_.param("enable_uvleds", enable_uvleds_, false);
+  private_node_handle_.param("enable_switch", enable_switch_, false);
+  
   // Publishers
   range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
 
-  netgun_arm        = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
-  netgun_safe       = nh_.advertiseService("netgun_safe", &Garmin::callbackNetgunSafe, this);
-  netgun_fire       = nh_.advertiseService("netgun_fire", &Garmin::callbackNetgunFire, this);
-  uvled_start_left  = nh_.advertiseService("uvled_start_left", &Garmin::callbackUvLedStartLeft, this);
-  uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::callbackUvLedStartRight, this);
-  uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
-  board_switch      = nh_.advertiseService("board_switch", &Garmin::callbackBoardSwitch, this);
+  if (enable_servo_) {
+    netgun_arm  = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
+    netgun_safe = nh_.advertiseService("netgun_safe", &Garmin::callbackNetgunSafe, this);
+    netgun_fire = nh_.advertiseService("netgun_fire", &Garmin::callbackNetgunFire, this);
+  }
+  if (enable_uvleds_) {
+    uvled_start_left  = nh_.advertiseService("uvled_start_left", &Garmin::callbackUvLedStartLeft, this);
+    uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::callbackUvLedStartRight, this);
+    uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
+  }
 
+  if (enable_switch_) {
+    board_switch = nh_.advertiseService("board_switch", &Garmin::callbackBoardSwitch, this);
+  }
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO("[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
-
+  ROS_INFO("[%s] enable_servo: %d", ros::this_node::getName().c_str(), enable_servo_);
+  ROS_INFO("[%s] enable_switch: %d", ros::this_node::getName().c_str(), enable_switch_);
+  ROS_INFO("[%s] enable_uvleds: %d", ros::this_node::getName().c_str(), enable_uvleds_);
   lastReceived = ros::Time::now();
 
   connectToSensor();
