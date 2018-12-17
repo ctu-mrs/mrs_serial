@@ -1,3 +1,4 @@
-enable_servo: false
+enable_servo: true
 enable_uvleds: false
 enable_switch: false
+enable_beacon: true

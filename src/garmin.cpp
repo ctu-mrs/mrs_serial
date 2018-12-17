@@ -22,6 +22,7 @@ Garmin::Garmin() {
   private_node_handle_.param("enable_servo", enable_servo_, false);
   private_node_handle_.param("enable_uvleds", enable_uvleds_, false);
   private_node_handle_.param("enable_switch", enable_switch_, false);
+  private_node_handle_.param("enable_beacon", enable_beacon_, false);
   
   // Publishers
   range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -36,7 +37,10 @@ Garmin::Garmin() {
     uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::callbackUvLedStartRight, this);
     uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
   }
-
+  if (enable_beacon_) {
+    beacon_on = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
+    beacon_off = nh_.advertiseService("beacon_stop", &Garmin::callbackBeaconOff, this);
+  }
   if (enable_switch_) {
     board_switch = nh_.advertiseService("board_switch", &Garmin::callbackBoardSwitch, this);
   }
@@ -137,6 +141,56 @@ bool Garmin::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req
 
   ROS_INFO("Firing net gun");
   res.message = "Firing net gun";
+  res.success = true;
+  return true;
+}
+
+//}
+
+/* callbackBeaconOn() //{ */
+
+bool Garmin::callbackBeaconOn([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  char id      = '4';
+  char tmpSend = 'a';
+  char crc     = tmpSend;
+
+  serial_port_->sendChar(tmpSend);
+  tmpSend = 1;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  tmpSend = id;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  serial_port_->sendChar(crc);
+
+  ROS_INFO("Starting sirene and beacon");
+  res.message = "Starting sirene and beacon";
+  res.success = true;
+  return true;
+}
+
+//}
+
+/* callbackBeaconOff() //{ */
+
+bool Garmin::callbackBeaconOff([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  char id      = '5';
+  char tmpSend = 'a';
+  char crc     = tmpSend;
+
+  serial_port_->sendChar(tmpSend);
+  tmpSend = 1;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  tmpSend = id;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  serial_port_->sendChar(crc);
+
+  ROS_INFO("Stopping sirene and beacon");
+  res.message = "Stopping sirene and beacon";
   res.success = true;
   return true;
 }
