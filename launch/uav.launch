@@ -6,7 +6,7 @@
   <group ns="$(arg uav_name)">
 
     <!-- launch the node -->
-    <node name="garmin" pkg="garmin_rangefinder" type="garmin" output="screen" respawn="true">
+    <node name="garmin" pkg="mrs_serial" type="garmin" output="screen" respawn="true">
       
       <rosparam file="$(find garmin_rangefinder)/config/garmin_rangefinder.yaml" />
       

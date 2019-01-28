@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>garmin_rangefinder</name>
+  <name>mrs_serial</name>
   <version>0.0.1</version>
   <description>driver for reading messages from garmin laser rangefinder</description>
 
