@@ -31,6 +31,8 @@ public:
   ros::ServiceServer uvled_start_right;
   ros::ServiceServer uvled_stop;
   ros::ServiceServer board_switch;
+  ros::ServiceServer beacon_on;
+  ros::ServiceServer beacon_off;
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -39,6 +41,8 @@ public:
   bool callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackUvLedStop(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackBeaconOn(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackBeaconOff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   bool loadParameters();
   void setMode(char c);
@@ -59,6 +63,7 @@ public:
   bool enable_servo_;
   bool enable_uvleds_;
   bool enable_switch_;
+  bool enable_beacon_;
 };
 
 #endif  // GARMIN_H_
