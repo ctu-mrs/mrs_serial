@@ -26,6 +26,7 @@ Garmin::Garmin() {
   
   // Publishers
   range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
 
   if (enable_servo_) {
     netgun_arm  = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
@@ -412,6 +413,7 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
         // just int16
         // input_buffer[0] message_id
+        uint8_t message_id = input_buffer[0];
         int16_t range = input_buffer[1] << 8;
         range |= input_buffer[2];
 
@@ -422,10 +424,15 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           range_msg.max_range       = 40.0;
           range_msg.min_range       = 0;
           range_msg.radiation_type  = sensor_msgs::Range::INFRARED;
-          range_msg.header.frame_id = "garmin_frame";
           range_msg.header.stamp    = ros::Time::now();
           range_msg.range           = range * 0.01;  // convert to m
-          range_publisher_.publish(range_msg);
+          if(message_id == 0x00){
+            range_msg.header.frame_id = "garmin_frame";
+            range_publisher_.publish(range_msg);
+          }else if(message_id == 0x01){
+            range_msg.header.frame_id = "garmin_frame_up";
+            range_publisher_up_.publish(range_msg);
+          }
           lastReceived = ros::Time::now();
         }
         ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);

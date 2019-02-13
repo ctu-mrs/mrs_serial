@@ -54,6 +54,7 @@ public:
 
   ros::NodeHandle nh_;
   ros::Publisher  range_publisher_;
+  ros::Publisher  range_publisher_up_;
 
   serial_device::SerialPort *    serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
