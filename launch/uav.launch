@@ -15,6 +15,7 @@
 
       <!-- Publishers -->
       <remap from="range" to="~range" />
+      <remap from="range_up" to="~range_up" />
       <remap from="~profiler" to="profiler" />
 
     </node>
