@@ -8,6 +8,8 @@
 #include "garmin/garmin.h"
 
 #define MAXIMAL_TIME_INTERVAL 1
+#define MAX_RANGE 4000  // cm
+#define MIN_RANGE 10    // cm
 
 /* Garmin() //{ */
 
@@ -419,13 +421,13 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
         sensor_msgs::Range range_msg;
         range_msg.field_of_view  = 0.0523599;  // +-3 degree
-        range_msg.max_range      = 40.0;
-        range_msg.min_range      = 0.05;
+        range_msg.max_range      = MAX_RANGE * 0.01;
+        range_msg.min_range      = MIN_RANGE * 0.01;
         range_msg.radiation_type = sensor_msgs::Range::INFRARED;
         range_msg.header.stamp   = ros::Time::now();
 
         // if range is valid
-        if (range < 4000 && range >= 0.05) {
+        if (range < MAX_RANGE && range >= MIN_RANGE) {
           range_msg.range = range * 0.01;  // convert to m
           // if not
         } else {
