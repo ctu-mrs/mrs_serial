@@ -422,7 +422,7 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           sensor_msgs::Range range_msg;
           range_msg.field_of_view   = 0.0523599;  // +-3 degree
           range_msg.max_range       = 40.0;
-          range_msg.min_range       = 0;
+          range_msg.min_range       = 0.05;
           range_msg.radiation_type  = sensor_msgs::Range::INFRARED;
           range_msg.header.stamp    = ros::Time::now();
           range_msg.range           = range * 0.01;  // convert to m
