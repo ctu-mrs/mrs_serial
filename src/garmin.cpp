@@ -438,10 +438,9 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           uint8_t message_id = input_buffer[0];
           uint8_t msg        = input_buffer[1];
           if (message_id == 0x11 && msg == 0x11) {
-            //TODO failsafe
+            // TODO failsafe
           }
-        }
-        else if (payload_size == 3) {
+        } else if (payload_size == 3) {
           // just int16
           // input_buffer[0] message_id
           uint8_t message_id = input_buffer[0];
@@ -455,12 +454,12 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           range_msg.radiation_type = sensor_msgs::Range::INFRARED;
           range_msg.header.stamp   = ros::Time::now();
 
-          // if range is valid
-          if (range < MAX_RANGE && range >= MIN_RANGE) {
-            range_msg.range = range * 0.01;  // convert to m
-            // if not
-          } else {
-            range_msg.range = 0;
+          range_msg.range = range * 0.01;  // convert to m
+
+          if (range > MAX_RANGE) {
+            range_msg.range = std::numeric_limits<double>::infinity();
+          } else if (range < MIN_RANGE) {
+            range_msg.range = -std::numeric_limits<double>::infinity();
           }
 
           if (message_id == 0x00) {
