@@ -412,39 +412,46 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
       if (crc_in == single_character) {
         receiving_message = 0;
-
-        // just int16
-        // input_buffer[0] message_id
-        uint8_t message_id = input_buffer[0];
-        int16_t range      = input_buffer[1] << 8;
-        range |= input_buffer[2];
-
-        sensor_msgs::Range range_msg;
-        range_msg.field_of_view  = 0.0523599;  // +-3 degree
-        range_msg.max_range      = MAX_RANGE * 0.01;
-        range_msg.min_range      = MIN_RANGE * 0.01;
-        range_msg.radiation_type = sensor_msgs::Range::INFRARED;
-        range_msg.header.stamp   = ros::Time::now();
-
-        // if range is valid
-        if (range < MAX_RANGE && range >= MIN_RANGE) {
-          range_msg.range = range * 0.01;  // convert to m
-          // if not
-        } else {
-          range_msg.range = 0;
+        if (payload_size == 2) {
+          uint8_t message_id = input_buffer[0];
+          uint8_t msg        = input_buffer[1];
+          if (message_id == 0x11 && msg == 0x11) {
+            //TODO failsafe
+          }
         }
+        else if (payload_size == 3) {
+          // just int16
+          // input_buffer[0] message_id
+          uint8_t message_id = input_buffer[0];
+          int16_t range      = input_buffer[1] << 8;
+          range |= input_buffer[2];
 
-        if (message_id == 0x00) {
-          range_msg.header.frame_id = "garmin_frame";
-          range_publisher_.publish(range_msg);
-        } else if (message_id == 0x01) {
-          range_msg.header.frame_id = "garmin_frame_up";
-          range_publisher_up_.publish(range_msg);
+          sensor_msgs::Range range_msg;
+          range_msg.field_of_view  = 0.0523599;  // +-3 degree
+          range_msg.max_range      = MAX_RANGE * 0.01;
+          range_msg.min_range      = MIN_RANGE * 0.01;
+          range_msg.radiation_type = sensor_msgs::Range::INFRARED;
+          range_msg.header.stamp   = ros::Time::now();
+
+          // if range is valid
+          if (range < MAX_RANGE && range >= MIN_RANGE) {
+            range_msg.range = range * 0.01;  // convert to m
+            // if not
+          } else {
+            range_msg.range = 0;
+          }
+
+          if (message_id == 0x00) {
+            range_msg.header.frame_id = "garmin_frame";
+            range_publisher_.publish(range_msg);
+          } else if (message_id == 0x01) {
+            range_msg.header.frame_id = "garmin_frame_up";
+            range_publisher_up_.publish(range_msg);
+          }
+          lastReceived = ros::Time::now();
+
+          ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
         }
-        lastReceived = ros::Time::now();
-
-        ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
-
       } else {
         ROS_DEBUG("[%s] crc missmatch", ros::this_node::getName().c_str());
         receiving_message = 0;
