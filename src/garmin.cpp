@@ -23,9 +23,9 @@ Garmin::Garmin() {
   private_node_handle_.param("enable_uvleds", enable_uvleds_, false);
   private_node_handle_.param("enable_switch", enable_switch_, false);
   private_node_handle_.param("enable_beacon", enable_beacon_, false);
-  
+
   // Publishers
-  range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
   range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
 
   if (enable_servo_) {
@@ -39,7 +39,7 @@ Garmin::Garmin() {
     uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
   }
   if (enable_beacon_) {
-    beacon_on = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
+    beacon_on  = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
     beacon_off = nh_.advertiseService("beacon_stop", &Garmin::callbackBeaconOff, this);
   }
   if (enable_switch_) {
@@ -414,27 +414,33 @@ void Garmin::serialDataCallback(uint8_t single_character) {
         // just int16
         // input_buffer[0] message_id
         uint8_t message_id = input_buffer[0];
-        int16_t range = input_buffer[1] << 8;
+        int16_t range      = input_buffer[1] << 8;
         range |= input_buffer[2];
 
-        if (range < 4000 && range >= 0) {
+        sensor_msgs::Range range_msg;
+        range_msg.field_of_view  = 0.0523599;  // +-3 degree
+        range_msg.max_range      = 40.0;
+        range_msg.min_range      = 0.05;
+        range_msg.radiation_type = sensor_msgs::Range::INFRARED;
+        range_msg.header.stamp   = ros::Time::now();
 
-          sensor_msgs::Range range_msg;
-          range_msg.field_of_view   = 0.0523599;  // +-3 degree
-          range_msg.max_range       = 40.0;
-          range_msg.min_range       = 0.05;
-          range_msg.radiation_type  = sensor_msgs::Range::INFRARED;
-          range_msg.header.stamp    = ros::Time::now();
-          range_msg.range           = range * 0.01;  // convert to m
-          if(message_id == 0x00){
-            range_msg.header.frame_id = "garmin_frame";
-            range_publisher_.publish(range_msg);
-          }else if(message_id == 0x01){
-            range_msg.header.frame_id = "garmin_frame_up";
-            range_publisher_up_.publish(range_msg);
-          }
-          lastReceived = ros::Time::now();
+        // if range is valid
+        if (range < 4000 && range >= 0.05) {
+          range_msg.range = range * 0.01;  // convert to m
+          // if not
+        } else {
+          range_msg.range = 0;
         }
+
+        if (message_id == 0x00) {
+          range_msg.header.frame_id = "garmin_frame";
+          range_publisher_.publish(range_msg);
+        } else if (message_id == 0x01) {
+          range_msg.header.frame_id = "garmin_frame_up";
+          range_publisher_up_.publish(range_msg);
+        }
+        lastReceived = ros::Time::now();
+
         ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
 
       } else {
