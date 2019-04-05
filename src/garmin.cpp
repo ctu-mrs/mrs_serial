@@ -328,6 +328,28 @@ bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetB
 // |                          routines                          |
 // --------------------------------------------------------------
 
+/*  callbackNetgunSafe()//{ */
+
+void Garmin::sendHeartbeat() {
+
+  char id      = '5';
+  char tmpSend = 'a';
+  char crc     = tmpSend;
+
+  serial_port_->sendChar(tmpSend);
+  tmpSend = 1;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  tmpSend = id;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  serial_port_->sendChar(crc);
+
+  ROS_INFO("Sending Heartbeat");
+}
+
+//}
+
 /* connectToSensors() //{ */
 
 uint8_t Garmin::connectToSensor(void) {
@@ -508,7 +530,7 @@ int main(int argc, char **argv) {
         ROS_INFO("[%s]: New connection to Garmin was established.", ros::this_node::getName().c_str());
       }
     }
-
+    garmin_sensor.sendHeartbeat();
     ros::spinOnce();
     loop_rate.sleep();
   }
