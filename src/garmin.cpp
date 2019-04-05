@@ -530,7 +530,7 @@ int main(int argc, char **argv) {
         ROS_INFO("[%s]: New connection to Garmin was established.", ros::this_node::getName().c_str());
       }
     }
-    garmin_sensor.sendHeartbeat();
+    /* garmin_sensor.sendHeartbeat(); */
     ros::spinOnce();
     loop_rate.sleep();
   }
