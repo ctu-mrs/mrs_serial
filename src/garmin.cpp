@@ -8,8 +8,12 @@
 #include "garmin/garmin.h"
 
 #define MAXIMAL_TIME_INTERVAL 1
+#define MAX_RANGE 4000  // cm
+#define MIN_RANGE 10    // cm
 
 /* Garmin() //{ */
+
+ros::ServiceClient t2_failsafe_service_client;
 
 Garmin::Garmin() {
 
@@ -18,15 +22,19 @@ Garmin::Garmin() {
 
   ros::Time::waitForValid();
 
+  t2_failsafe_service_client = nh_.serviceClient<std_srvs::Trigger>("t2_failsafe");
+
   private_node_handle_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   private_node_handle_.param("enable_servo", enable_servo_, false);
   private_node_handle_.param("enable_uvleds", enable_uvleds_, false);
   private_node_handle_.param("enable_switch", enable_switch_, false);
   private_node_handle_.param("enable_beacon", enable_beacon_, false);
-  
+
   // Publishers
-  range_publisher_ = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
   range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  
+  //service out
 
   if (enable_servo_) {
     netgun_arm  = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
@@ -39,7 +47,7 @@ Garmin::Garmin() {
     uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
   }
   if (enable_beacon_) {
-    beacon_on = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
+    beacon_on  = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
     beacon_off = nh_.advertiseService("beacon_stop", &Garmin::callbackBeaconOff, this);
   }
   if (enable_switch_) {
@@ -326,6 +334,28 @@ bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetB
 // |                          routines                          |
 // --------------------------------------------------------------
 
+/*  callbackNetgunSafe()//{ */
+
+void Garmin::sendHeartbeat() {
+
+  char id      = '5';
+  char tmpSend = 'a';
+  char crc     = tmpSend;
+
+  serial_port_->sendChar(tmpSend);
+  tmpSend = 1;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  tmpSend = id;
+  crc += tmpSend;
+  serial_port_->sendChar(tmpSend);
+  serial_port_->sendChar(crc);
+
+  ROS_INFO("Sending Heartbeat");
+}
+
+//}
+
 /* connectToSensors() //{ */
 
 uint8_t Garmin::connectToSensor(void) {
@@ -410,33 +440,47 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
       if (crc_in == single_character) {
         receiving_message = 0;
-
-        // just int16
-        // input_buffer[0] message_id
-        uint8_t message_id = input_buffer[0];
-        int16_t range = input_buffer[1] << 8;
-        range |= input_buffer[2];
-
-        if (range < 4000 && range >= 0) {
+        if (payload_size == 2) {
+          uint8_t message_id = input_buffer[0];
+          uint8_t msg        = input_buffer[1];
+          if (message_id == 0x11 && msg == 0x11) {
+            std_srvs::Trigger trig;
+            t2_failsafe_service_client.call(trig);
+            ROS_ERROR("T2 Failsafe triggered!");
+          }
+        } else if (payload_size == 3) {
+          // just int16
+          // input_buffer[0] message_id
+          uint8_t message_id = input_buffer[0];
+          int16_t range      = input_buffer[1] << 8;
+          range |= input_buffer[2];
 
           sensor_msgs::Range range_msg;
-          range_msg.field_of_view   = 0.0523599;  // +-3 degree
-          range_msg.max_range       = 40.0;
-          range_msg.min_range       = 0;
-          range_msg.radiation_type  = sensor_msgs::Range::INFRARED;
-          range_msg.header.stamp    = ros::Time::now();
-          range_msg.range           = range * 0.01;  // convert to m
-          if(message_id == 0x00){
+          range_msg.field_of_view  = 0.0523599;  // +-3 degree
+          range_msg.max_range      = MAX_RANGE * 0.01;
+          range_msg.min_range      = MIN_RANGE * 0.01;
+          range_msg.radiation_type = sensor_msgs::Range::INFRARED;
+          range_msg.header.stamp   = ros::Time::now();
+
+          range_msg.range = range * 0.01;  // convert to m
+
+          if (range > MAX_RANGE) {
+            range_msg.range = std::numeric_limits<double>::infinity();
+          } else if (range < MIN_RANGE) {
+            range_msg.range = -std::numeric_limits<double>::infinity();
+          }
+
+          if (message_id == 0x00) {
             range_msg.header.frame_id = "garmin_frame";
             range_publisher_.publish(range_msg);
-          }else if(message_id == 0x01){
+          } else if (message_id == 0x01) {
             range_msg.header.frame_id = "garmin_frame_up";
             range_publisher_up_.publish(range_msg);
           }
           lastReceived = ros::Time::now();
-        }
-        ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
 
+          ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
+        }
       } else {
         ROS_DEBUG("[%s] crc missmatch", ros::this_node::getName().c_str());
         receiving_message = 0;
@@ -493,7 +537,7 @@ int main(int argc, char **argv) {
         ROS_INFO("[%s]: New connection to Garmin was established.", ros::this_node::getName().c_str());
       }
     }
-
+    garmin_sensor.sendHeartbeat();
     ros::spinOnce();
     loop_rate.sleep();
   }

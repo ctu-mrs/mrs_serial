@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color")
 
 # since we need boost search it as well
 # find_package makes the ${..._INCLUDE_DIRS} ${..._LIBRARIES} variables we use later
