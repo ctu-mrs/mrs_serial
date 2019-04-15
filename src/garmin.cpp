@@ -446,7 +446,7 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           if (message_id == 0x11 && msg == 0x11) {
             std_srvs::Trigger trig;
             t2_failsafe_service_client.call(trig);
-            ROS_ERROR("T2 Failsafe triggered!");
+            ROS_ERROR_THROTTLE(1, "T2 Failsafe triggered!");
           }
         } else if (payload_size == 3) {
           // just int16
