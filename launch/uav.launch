@@ -7,9 +7,9 @@
 
     <!-- launch the node -->
     <node name="garmin" pkg="mrs_serial" type="garmin" output="screen" respawn="true">
-      
+
       <rosparam file="$(find mrs_serial)/config/garmin_rangefinder.yaml" />
-      
+
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/garmin"/>
 
@@ -19,10 +19,13 @@
       <remap from="~profiler" to="profiler" />
 
       <!--ServicesOut-->
-       <!-- <remap from="~t2_failsafe" to="control_manager/failsafe_escalating" /> -->
-       <remap from="~t2_failsafe" to="control_manager/NOTHING" />
+      <!-- <remap from="~t2_failsafe" to="control_manager/failsafe_escalating" /> -->
+      <remap from="~t2_failsafe" to="control_manager/NOTHING" />
 
     </node>
+
+    <!-- Subscribers -->
+    <!-- <remap from="garmin/fire_topic" to="fire_topic" /> -->
 
   </group>
 

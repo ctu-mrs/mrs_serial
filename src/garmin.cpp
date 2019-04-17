@@ -2,6 +2,7 @@
 
 #include <std_srvs/SetBool.h>
 #include <std_srvs/Trigger.h>
+#include <std_msgs/Bool.h>
 
 #include <std_srvs/Trigger.h>
 
@@ -33,8 +34,11 @@ Garmin::Garmin() {
   // Publishers
   range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
   range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
-  
-  //service out
+
+  fire_subscriber = nh_.subscribe("fire_topic", 1, &Garmin::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
+
+
+  // service out
 
   if (enable_servo_) {
     netgun_arm  = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
@@ -330,11 +334,35 @@ bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetB
 
 //}
 
+/* fireTopicCallback //{ */
+
+void Garmin::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
+  std_msgs::Bool mybool = *msg;
+  if (mybool.data) {
+    char id      = '9';
+    char tmpSend = 'a';
+    char crc     = tmpSend;
+    
+    serial_port_->sendChar(tmpSend);
+    tmpSend = 1;
+    crc += tmpSend;
+    serial_port_->sendChar(tmpSend);
+    tmpSend = id;
+    crc += tmpSend;
+    serial_port_->sendChar(tmpSend);
+    serial_port_->sendChar(crc);
+
+    ROS_INFO("Firing net gun");
+  }
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                          routines                          |
 // --------------------------------------------------------------
 
-/*  callbackNetgunSafe()//{ */
+/*  sendHeartbeat()//{ */
 
 void Garmin::sendHeartbeat() {
 
@@ -519,7 +547,7 @@ int main(int argc, char **argv) {
 
   Garmin garmin_sensor;
 
-  ros::Rate loop_rate(1);
+  ros::Rate loop_rate(100);
 
   while (ros::ok()) {
 

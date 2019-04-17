@@ -7,6 +7,7 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
+#include <std_msgs/Bool.h>
 
 #include <string>
 
@@ -43,6 +44,7 @@ public:
   bool callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackBeaconOn(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackBeaconOff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void fireTopicCallback(const std_msgs::BoolConstPtr &msg);
 
   void sendHeartbeat();
 
@@ -57,6 +59,7 @@ public:
   ros::NodeHandle nh_;
   ros::Publisher  range_publisher_;
   ros::Publisher  range_publisher_up_;
+  ros::Subscriber fire_subscriber; 
 
   serial_device::SerialPort *    serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
