@@ -19,17 +19,17 @@ ros::ServiceClient t2_failsafe_service_client;
 Garmin::Garmin() {
 
   // Get paramters
-  ros::NodeHandle private_node_handle_("~");
+  nh_ =  ros::NodeHandle("~");
 
   ros::Time::waitForValid();
 
   t2_failsafe_service_client = nh_.serviceClient<std_srvs::Trigger>("t2_failsafe");
 
-  private_node_handle_.param("portname", portname_, std::string("/dev/ttyUSB0"));
-  private_node_handle_.param("enable_servo", enable_servo_, false);
-  private_node_handle_.param("enable_uvleds", enable_uvleds_, false);
-  private_node_handle_.param("enable_switch", enable_switch_, false);
-  private_node_handle_.param("enable_beacon", enable_beacon_, false);
+  nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("enable_servo", enable_servo_, false);
+  nh_.param("enable_uvleds", enable_uvleds_, false);
+  nh_.param("enable_switch", enable_switch_, false);
+  nh_.param("enable_beacon", enable_beacon_, false);
 
   // Publishers
   range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -366,20 +366,20 @@ void Garmin::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
 
 void Garmin::sendHeartbeat() {
 
-  char id      = '5';
-  char tmpSend = 'a';
-  char crc     = tmpSend;
+  /* char id      = '5'; */
+  /* char tmpSend = 'a'; */
+  /* char crc     = tmpSend; */
 
-  serial_port_->sendChar(tmpSend);
-  tmpSend = 1;
-  crc += tmpSend;
-  serial_port_->sendChar(tmpSend);
-  tmpSend = id;
-  crc += tmpSend;
-  serial_port_->sendChar(tmpSend);
-  serial_port_->sendChar(crc);
+  /* serial_port_->sendChar(tmpSend); */
+  /* tmpSend = 1; */
+  /* crc += tmpSend; */
+  /* serial_port_->sendChar(tmpSend); */
+  /* tmpSend = id; */
+  /* crc += tmpSend; */
+  /* serial_port_->sendChar(tmpSend); */
+  /* serial_port_->sendChar(crc); */
 
-  ROS_INFO("Sending Heartbeat");
+  /* ROS_INFO("Sending Heartbeat"); */
 }
 
 //}

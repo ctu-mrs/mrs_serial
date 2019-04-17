@@ -14,18 +14,23 @@
       <param name="portname" value="/dev/garmin"/>
 
       <!-- Publishers -->
-      <remap from="range" to="~range" />
-      <remap from="range_up" to="~range_up" />
+      <remap from="~range" to="~range" />
+      <remap from="~range_up" to="~range_up" />
       <remap from="~profiler" to="profiler" />
 
       <!--ServicesOut-->
       <!-- <remap from="~t2_failsafe" to="control_manager/failsafe_escalating" /> -->
       <remap from="~t2_failsafe" to="control_manager/NOTHING" />
 
-    </node>
+      <!--ServicesIn-->
+      <remap from="~netgun_fire" to="netgun_fire" />
+      <remap from="~netgun_arm" to="netgun_arm" />
+      <remap from="~netgun_safe" to="netgun_safe" />
 
-    <!-- Subscribers -->
-    <!-- <remap from="garmin/fire_topic" to="fire_topic" /> -->
+      <!-- Subscribers -->
+      <remap from="~fire_topic" to="fire_topic" />
+
+    </node>
 
   </group>
 
