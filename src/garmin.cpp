@@ -509,6 +509,44 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
           ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
         }
+
+        else if (payload_size == 4 ){
+
+          uint8_t message_id = input_buffer[0];
+          int UltrasonicFeedback = input_buffer[1];
+          int Proximity1Feedback = input_buffer[2];
+          int Proximity2Feedback = input_buffer[3];
+
+
+          if (UltrasonicFeedback == true)
+          {
+            
+          }
+          else
+          {
+
+          }
+
+          if (Proximity1Feedback == true)
+          {
+            
+          }
+          else
+          {
+
+          }
+          
+          if (Proximity2Feedback == true)
+          {
+            
+          }
+          else
+          {
+
+          }
+
+
+        }
       } else {
         ROS_DEBUG("[%s] crc missmatch", ros::this_node::getName().c_str());
         receiving_message = 0;
