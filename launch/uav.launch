@@ -17,6 +17,7 @@
       <remap from="~range" to="~range" />
       <remap from="~range_up" to="~range_up" />
       <remap from="~profiler" to="profiler" />
+      <remap from="~gripper_diagnostics" to="gripper_diagnostics" />
 
       <!--ServicesOut-->
       <!-- <remap from="~t2_failsafe" to="control_manager/failsafe_escalating" /> -->

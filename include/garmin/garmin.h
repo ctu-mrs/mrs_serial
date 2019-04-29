@@ -10,6 +10,7 @@
 #include <std_msgs/Bool.h>
 
 #include <string>
+#include <mrs_msgs/GripperDiagnostics.h>
 
 #include "garmin/serial_port.h"
 
@@ -59,8 +60,9 @@ public:
   ros::NodeHandle nh_;
   ros::Publisher  range_publisher_;
   ros::Publisher  range_publisher_up_;
+  ros::Publisher  gripper_diagnostics_publisher_;
+
   ros::Subscriber fire_subscriber; 
-  ros::Subscriber gripper_subscriber; 
 
   serial_device::SerialPort *    serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;

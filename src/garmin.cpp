@@ -5,6 +5,7 @@
 #include <std_msgs/Bool.h>
 
 #include <std_srvs/Trigger.h>
+#include <mrs_msgs/GripperDiagnostics.h>
 
 #include "garmin/garmin.h"
 
@@ -19,7 +20,7 @@ ros::ServiceClient t2_failsafe_service_client;
 Garmin::Garmin() {
 
   // Get paramters
-  nh_ =  ros::NodeHandle("~");
+  nh_ = ros::NodeHandle("~");
 
   ros::Time::waitForValid();
 
@@ -32,8 +33,9 @@ Garmin::Garmin() {
   nh_.param("enable_beacon", enable_beacon_, false);
 
   // Publishers
-  range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
-  range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  range_publisher_               = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_up_            = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  gripper_diagnostics_publisher_ = nh_.advertise<mrs_msgs::GripperDiagnostics>("gripper_diagnostics", 1);
 
   fire_subscriber = nh_.subscribe("fire_topic", 1, &Garmin::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
 
@@ -342,7 +344,7 @@ void Garmin::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
     char id      = '9';
     char tmpSend = 'a';
     char crc     = tmpSend;
-    
+
     serial_port_->sendChar(tmpSend);
     tmpSend = 1;
     crc += tmpSend;
@@ -510,41 +512,20 @@ void Garmin::serialDataCallback(uint8_t single_character) {
           ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
         }
 
-        else if (payload_size == 4 ){
+        else if (payload_size == 4) {
 
-          uint8_t message_id = input_buffer[0];
-          int UltrasonicFeedback = input_buffer[1];
-          int Proximity1Feedback = input_buffer[2];
-          int Proximity2Feedback = input_buffer[3];
+          mrs_msgs::GripperDiagnostics msg;
+          msg.stamp = ros::Time::now();
 
+          uint8_t message_id         = input_buffer[0];
+          int     UltrasonicFeedback = input_buffer[1];
+          int     Proximity1Feedback = input_buffer[2];
+          int     Proximity2Feedback = input_buffer[3];
 
-          if (UltrasonicFeedback == true)
-          {
-            
-          }
-          else
-          {
-
-          }
-
-          if (Proximity1Feedback == true)
-          {
-            
-          }
-          else
-          {
-
-          }
-          
-          if (Proximity2Feedback == true)
-          {
-            
-          }
-          else
-          {
-
-          }
-
+          msg.ultrasonic1 = UltrasonicFeedback;
+          msg.proximity1  = Proximity1Feedback;
+          msg.proximity2  = Proximity2Feedback;
+          gripper_diagnostics_publisher_.publish(msg);
 
         }
       } else {

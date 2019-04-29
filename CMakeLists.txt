@@ -5,6 +5,7 @@ project(mrs_serial)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
+  mrs_msgs
   std_msgs
 )
 
@@ -21,7 +22,7 @@ find_package(Boost REQUIRED COMPONENTS system thread)
 # export the dependencis of this package for who ever depends on us
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
   DEPENDS Boost
 )
 
