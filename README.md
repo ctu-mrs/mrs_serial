@@ -27,7 +27,6 @@ Following messages are already reserved for parts of the MRS system, avoid using
 ```
 payload_size = 3 && message_id = 0   >> Garmin rangefinder
 payload_size = 3 && message_id = 1   >> Garmin rangefinder (up)
-
 payload_size = 1 && message_id = '4'(0x34)   >> Beacon on (eagle)
 payload_size = 1 && message_id = '5'(0x35)   >> Beacon off (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
