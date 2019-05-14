@@ -1,7 +1,7 @@
 ## Serial protocol
 
 Messages sent/received throuh the serial line consist of 8 bit values.
-The protocol for serial communication used at MRS (Baca) is defined as follows:
+The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
 
 ```
 ['b'][payload_size][payload_0(=message_id)][payload_1]...[payload_n][checksum]
