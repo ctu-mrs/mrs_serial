@@ -35,21 +35,8 @@ payload_size = 1 && message_id = '7'(0x37)   >> netgun fire (eagle)
 ```
 
 ## How to use - getting data from a serial device to ROS
-If the mrs_serial node is running, and it is connected to some device through the serial line,
-it will publish all the messages that are received through the serial line at a topic called
-```
-/uav_name/mrs_serial/received_message
-```
-The ros message published by mrs_serial will have this structure (defined in mrs_msgs):
-```
-time stamp
-uint8[] payload
-uint8 checksum
-bool checksum_correct
-```
-by default, mrs_serial will only publish messages with correct checksums, other messages will be discraded.
 
-Here is an example of a Arduino function that will send a 16 bit integer through the serial line:
+Here is an example of a Arduino function that will send a 16 bit integer through the serial line, using the protocol described above:
 ```c
 void send_data(uint16_t data) {
   uint8_t checksum = 0;
@@ -82,6 +69,22 @@ void send_data(uint16_t data) {
   Serial.write(checksum);
 }
 ```
+
+If the mrs_serial node is running, and it is connected to some device through the serial line,
+it will publish all the messages that are received through the serial line at a topic called
+```
+/uav_name/mrs_serial/received_message
+```
+You can subscribe to this topic and interpret the received message in your node.
+The ros message published by mrs_serial will have this structure (defined in mrs_msgs):
+```
+time stamp
+uint8[] payload
+uint8 checksum
+bool checksum_correct
+```
+by default, mrs_serial will only publish messages with correct checksums, other messages will be discraded.
+
 
 
 
