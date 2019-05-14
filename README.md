@@ -33,3 +33,18 @@ payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun arm (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun fire (eagle)
 ```
+
+## How to use
+If the mrs_serial node is running, and it is connected to some device through the serial line,
+it will publish all the messages that are received through the serial line at a topic called
+```
+/uav_name/mrs_serial/received_message
+```
+The ros message published by mrs_serial will have this structure (defined in mrs_msgs):
+```
+time stamp
+uint8[] payload
+uint8 checksum
+bool checksum_correct
+```
+by default, mrs_serial will only publish messages with correct checksums, other messages will be discraded.
