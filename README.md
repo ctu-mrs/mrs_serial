@@ -17,7 +17,7 @@ next byte is the id, which is a user-defined identification number of the messag
 The id is then followed by the payload bytes, there has to be exactly "payload_size -1" of them.
 The last byte of the message is a checksum, which is calculated as follows:
 ```
-uint8_t checksum = payload_size + id + payload0 + payload1 + ... + payload_n
+uint8_t checksum = 'b' + payload_size + id + payload0 + payload1 + ... + payload_n
 ```
 The checksum is calculated by the sender and added to the serial message. The receiver then
 calculates the checksum again from the received data, and compares it to the received checksum
