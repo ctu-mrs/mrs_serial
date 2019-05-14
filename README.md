@@ -34,7 +34,7 @@ payload_size = 1 && message_id = '7'(0x37)   >> netgun arm (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun fire (eagle)
 ```
 
-## How to use
+## How to use - getting data from a serial device to ROS
 If the mrs_serial node is running, and it is connected to some device through the serial line,
 it will publish all the messages that are received through the serial line at a topic called
 ```
@@ -48,3 +48,40 @@ uint8 checksum
 bool checksum_correct
 ```
 by default, mrs_serial will only publish messages with correct checksums, other messages will be discraded.
+
+Here is an example of a Arduino function that will send a 16 bit integer through the serial line:
+```
+void send_data(uint16_t data) {
+  uint8_t checksum = 0;
+  uint8_t payload_size = 3;
+
+  byte bytes[2];
+  //split 16 bit integer to two 8 bit integers
+  bytes[0] = (data >> 8) & 0xFF;
+  bytes[1] = data & 0xFF;
+
+  //message start
+  Serial.write('b');
+  checksum += 'b';
+
+  //payload size
+  Serial.write(payload_size);
+  checksum += payload_size;
+
+  //payload
+  Serial.write(0x17); // message_id
+  checksum += 0x17;
+  
+  Serial.write(bytes[0]);
+  checksum += bytes[0];
+  
+  Serial.write(bytes[1]);
+  checksum += bytes[1];
+  
+  //checksum
+  Serial.write(checksum);
+}
+```
+
+
+
