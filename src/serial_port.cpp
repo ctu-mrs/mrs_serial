@@ -1,7 +1,6 @@
 #include <string>
 
 #include "serial_port.h"
-#include "baca_protocol.h"
 
 namespace serial_device
 {
@@ -94,7 +93,7 @@ void SerialPort::serialThread() {
   while (!serial_thread_should_exit_ && ros::ok()) {
     try {
 
-      if (read(serial_port_fd_, &single_character, 1)) {
+      while (read(serial_port_fd_, &single_character, 1)) {
 
         (*serial_callback_function)(single_character);
       }

@@ -1,17 +1,77 @@
-#include <string>
-
-#include <std_srvs/SetBool.h>
+#include <ros/package.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Range.h>
+#include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
+#include <std_srvs/SetBool.h>
 #include <std_msgs/Bool.h>
 
-#include <std_srvs/Trigger.h>
-#include <mrs_msgs/GripperDiagnostics.h>
+#include <string>
+#include <mrs_msgs/BacaProtocol.h>
 
-#include "baca_protocol.h"
+#include "serial_port.h"
 
+// for serial port
+#define BUFFER_SIZE 64
+
+// for garmin
 #define MAXIMAL_TIME_INTERVAL 1
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
+
+
+/* class BacaProtocol //{ */
+
+class BacaProtocol {
+public:
+  BacaProtocol();
+
+  void    serialDataCallback(uint8_t data);
+
+  ros::ServiceServer netgun_arm;
+  ros::ServiceServer netgun_safe;
+  ros::ServiceServer netgun_fire;
+  ros::ServiceServer uvled_start_left;
+  ros::ServiceServer uvled_start_right;
+  ros::ServiceServer uvled_stop;
+  ros::ServiceServer board_switch;
+  ros::ServiceServer beacon_on;
+  ros::ServiceServer beacon_off;
+
+  bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackUvLedStop(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackBeaconOn(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackBeaconOff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void fireTopicCallback(const std_msgs::BoolConstPtr &msg);
+
+  uint8_t connectToSensor(void);
+  void    releaseSerialLine(void);
+
+  ros::Time lastReceived;
+
+  ros::NodeHandle nh_;
+  ros::Publisher  range_publisher_;
+  ros::Publisher  range_publisher_up_;
+
+  ros::Subscriber fire_subscriber;
+
+  serial_device::SerialPort *    serial_port_;
+  boost::function<void(uint8_t)> serial_data_callback_function_;
+
+  std::string portname_;
+
+  bool enable_servo_;
+  bool enable_uvleds_;
+  bool enable_switch_;
+  bool enable_beacon_;
+};
+
+//}
 
 /* BacaProtocol() //{ */
 
@@ -29,12 +89,10 @@ BacaProtocol::BacaProtocol() {
   nh_.param("enable_beacon", enable_beacon_, false);
 
   // Publishers
-  range_publisher_               = nh_.advertise<sensor_msgs::Range>("range", 1);
-  range_publisher_up_            = nh_.advertise<sensor_msgs::Range>("range_up", 1);
-  gripper_diagnostics_publisher_ = nh_.advertise<mrs_msgs::GripperDiagnostics>("gripper_diagnostics", 1);
+  range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
 
   fire_subscriber = nh_.subscribe("fire_topic", 1, &BacaProtocol::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
-
 
   // service out
 
@@ -67,17 +125,6 @@ BacaProtocol::BacaProtocol() {
 }
 
 //}
-
-/* ~BacaProtocol() //{ */
-
-BacaProtocol::~BacaProtocol() {
-}
-
-//}
-
-// --------------------------------------------------------------
-// |                          callbacks                         |
-// --------------------------------------------------------------
 
 // | ------------------------ services ------------------------ |
 
@@ -356,31 +403,7 @@ void BacaProtocol::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
 
 //}
 
-// --------------------------------------------------------------
 // |                          routines                          |
-// --------------------------------------------------------------
-
-/*  sendHeartbeat()//{ */
-
-void BacaProtocol::sendHeartbeat() {
-
-  /* char id      = '5'; */
-  /* char tmpSend = 'a'; */
-  /* char crc     = tmpSend; */
-
-  /* serial_port_->sendChar(tmpSend); */
-  /* tmpSend = 1; */
-  /* crc += tmpSend; */
-  /* serial_port_->sendChar(tmpSend); */
-  /* tmpSend = id; */
-  /* crc += tmpSend; */
-  /* serial_port_->sendChar(tmpSend); */
-  /* serial_port_->sendChar(crc); */
-
-  /* ROS_INFO("Sending Heartbeat"); */
-}
-
-//}
 
 /* connectToSensors() //{ */
 
@@ -503,22 +526,6 @@ void BacaProtocol::serialDataCallback(uint8_t single_character) {
           ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
         }
 
-        else if (payload_size == 4) {
-
-          mrs_msgs::GripperDiagnostics msg;
-          msg.stamp = ros::Time::now();
-
-          uint8_t message_id         = input_buffer[0];
-          int     UltrasonicFeedback = input_buffer[1];
-          int     Proximity1Feedback = input_buffer[2];
-          int     Proximity2Feedback = input_buffer[3];
-
-          msg.ultrasonic1 = UltrasonicFeedback;
-          msg.proximity1  = Proximity1Feedback;
-          msg.proximity2  = Proximity2Feedback;
-          gripper_diagnostics_publisher_.publish(msg);
-
-        }
       } else {
         ROS_DEBUG("[%s] crc missmatch", ros::this_node::getName().c_str());
         receiving_message = 0;
@@ -540,42 +547,32 @@ void BacaProtocol::serialDataCallback(uint8_t single_character) {
 
 //}
 
-/* setMode() //{ */
-
-void BacaProtocol::setMode(char c) {
-
-  serial_port_->sendChar(c);
-}
-
-//}
-
 /* main() //{ */
 
 int main(int argc, char **argv) {
 
   ros::init(argc, argv, "BacaProtocol");
 
-  BacaProtocol garmin_sensor;
+  BacaProtocol serial_line;
 
   ros::Rate loop_rate(100);
 
   while (ros::ok()) {
 
     // check whether the teraranger stopped sending data
-    ros::Duration interval = ros::Time::now() - garmin_sensor.lastReceived;
+    ros::Duration interval = ros::Time::now() - serial_line.lastReceived;
     if (interval.toSec() > MAXIMAL_TIME_INTERVAL) {
 
-      garmin_sensor.releaseSerialLine();
+      serial_line.releaseSerialLine();
 
       ROS_WARN("[%s]: BacaProtocol not responding, resetting connection...", ros::this_node::getName().c_str());
 
       // if establishing the new connection was successfull
-      if (garmin_sensor.connectToSensor() == 1) {
+      if (serial_line.connectToSensor() == 1) {
 
         ROS_INFO("[%s]: New connection to BacaProtocol was established.", ros::this_node::getName().c_str());
       }
     }
-    garmin_sensor.sendHeartbeat();
     ros::spinOnce();
     loop_rate.sleep();
   }
