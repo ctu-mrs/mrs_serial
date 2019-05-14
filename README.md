@@ -3,7 +3,7 @@
 Messages sent/received throuh the serial line consist of 8 bit values.
 The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
 
-```
+```c
 ['b'][payload_size][payload_0(=message_id)][payload_1]...[payload_n][checksum]
 ```
 
@@ -14,7 +14,7 @@ First byte of the payload is message_id, which is user defined and
 serves to differentiate between different messages of the same length.
 The message_id can be followed by other payload bytes.
 The last byte of the message is a checksum, which is calculated as follows:
-```
+```c
 uint8_t checksum = 'b' + payload_size + payload0 + payload1 + ... + payload_n
 ```
 The checksum is calculated by the sender and added to the serial message. The receiver then
