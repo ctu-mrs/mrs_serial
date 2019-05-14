@@ -102,7 +102,7 @@ but you should only fill the payload, the other fields are irrelevant (checksum 
 mrs_serial will then send your message through the serial line, again using the protocol described above.
 Here is an Arduino example of a function that receives message with a payload_size == 1:
 
-```
+```c
 uint8_t read_single() {
   // Check if there are bytes in the buffer
   if (Serial.available() > 2) {
