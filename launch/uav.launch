@@ -6,9 +6,7 @@
   <group ns="$(arg uav_name)">
 
     <!-- launch the node -->
-    <node name="garmin" pkg="mrs_serial" type="garmin" output="screen" respawn="true">
-
-      <rosparam file="$(find mrs_serial)/config/garmin_rangefinder.yaml" />
+    <node name="baca_protocol" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/garmin"/>

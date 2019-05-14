@@ -1,5 +1,5 @@
-#ifndef GARMIN_H_
-#define GARMIN_H_
+#ifndef BACA_PROTOCOL_H_
+#define BACA_PROTOCOL_H_
 
 #include <ros/package.h>
 #include <ros/ros.h>
@@ -12,16 +12,16 @@
 #include <string>
 #include <mrs_msgs/GripperDiagnostics.h>
 
-#include "garmin/serial_port.h"
+#include "serial_port.h"
 
 #define BUFFER_SIZE 64
 
 // static const char PRECISE_MODE = 'P';
 
-class Garmin {
+class BacaProtocol {
 public:
-  Garmin();
-  virtual ~Garmin();
+  BacaProtocol();
+  virtual ~BacaProtocol();
 
   uint8_t crc8(uint8_t *p, uint8_t len);
   void    serialDataCallback(uint8_t data);
@@ -75,4 +75,4 @@ public:
   bool enable_beacon_;
 };
 
-#endif  // GARMIN_H_
+#endif  // BACA_PROTOCOL_H_

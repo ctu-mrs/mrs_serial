@@ -7,24 +7,20 @@
 #include <std_srvs/Trigger.h>
 #include <mrs_msgs/GripperDiagnostics.h>
 
-#include "garmin/garmin.h"
+#include "baca_protocol.h"
 
 #define MAXIMAL_TIME_INTERVAL 1
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
 
-/* Garmin() //{ */
+/* BacaProtocol() //{ */
 
-ros::ServiceClient t2_failsafe_service_client;
-
-Garmin::Garmin() {
+BacaProtocol::BacaProtocol() {
 
   // Get paramters
   nh_ = ros::NodeHandle("~");
 
   ros::Time::waitForValid();
-
-  t2_failsafe_service_client = nh_.serviceClient<std_srvs::Trigger>("t2_failsafe");
 
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("enable_servo", enable_servo_, false);
@@ -37,27 +33,27 @@ Garmin::Garmin() {
   range_publisher_up_            = nh_.advertise<sensor_msgs::Range>("range_up", 1);
   gripper_diagnostics_publisher_ = nh_.advertise<mrs_msgs::GripperDiagnostics>("gripper_diagnostics", 1);
 
-  fire_subscriber = nh_.subscribe("fire_topic", 1, &Garmin::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
+  fire_subscriber = nh_.subscribe("fire_topic", 1, &BacaProtocol::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
 
 
   // service out
 
   if (enable_servo_) {
-    netgun_arm  = nh_.advertiseService("netgun_arm", &Garmin::callbackNetgunArm, this);
-    netgun_safe = nh_.advertiseService("netgun_safe", &Garmin::callbackNetgunSafe, this);
-    netgun_fire = nh_.advertiseService("netgun_fire", &Garmin::callbackNetgunFire, this);
+    netgun_arm  = nh_.advertiseService("netgun_arm", &BacaProtocol::callbackNetgunArm, this);
+    netgun_safe = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
+    netgun_fire = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
   }
   if (enable_uvleds_) {
-    uvled_start_left  = nh_.advertiseService("uvled_start_left", &Garmin::callbackUvLedStartLeft, this);
-    uvled_start_right = nh_.advertiseService("uvled_start_right", &Garmin::callbackUvLedStartRight, this);
-    uvled_stop        = nh_.advertiseService("uvled_stop", &Garmin::callbackUvLedStop, this);
+    uvled_start_left  = nh_.advertiseService("uvled_start_left", &BacaProtocol::callbackUvLedStartLeft, this);
+    uvled_start_right = nh_.advertiseService("uvled_start_right", &BacaProtocol::callbackUvLedStartRight, this);
+    uvled_stop        = nh_.advertiseService("uvled_stop", &BacaProtocol::callbackUvLedStop, this);
   }
   if (enable_beacon_) {
-    beacon_on  = nh_.advertiseService("beacon_start", &Garmin::callbackBeaconOn, this);
-    beacon_off = nh_.advertiseService("beacon_stop", &Garmin::callbackBeaconOff, this);
+    beacon_on  = nh_.advertiseService("beacon_start", &BacaProtocol::callbackBeaconOn, this);
+    beacon_off = nh_.advertiseService("beacon_stop", &BacaProtocol::callbackBeaconOff, this);
   }
   if (enable_switch_) {
-    board_switch = nh_.advertiseService("board_switch", &Garmin::callbackBoardSwitch, this);
+    board_switch = nh_.advertiseService("board_switch", &BacaProtocol::callbackBoardSwitch, this);
   }
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -72,9 +68,9 @@ Garmin::Garmin() {
 
 //}
 
-/* ~Garmin() //{ */
+/* ~BacaProtocol() //{ */
 
-Garmin::~Garmin() {
+BacaProtocol::~BacaProtocol() {
 }
 
 //}
@@ -87,7 +83,7 @@ Garmin::~Garmin() {
 
 /*  callbackNetgunSafe()//{ */
 
-bool Garmin::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '7';
   char tmpSend = 'a';
@@ -113,7 +109,7 @@ bool Garmin::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Request &req
 
 /* callbackNetgunArm() //{ */
 
-bool Garmin::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '8';
   char tmpSend = 'a';
@@ -139,7 +135,7 @@ bool Garmin::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request &req,
 
 /* callbackNetgunFire() //{ */
 
-bool Garmin::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '9';
   char tmpSend = 'a';
@@ -164,7 +160,7 @@ bool Garmin::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req
 
 /* callbackBeaconOn() //{ */
 
-bool Garmin::callbackBeaconOn([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackBeaconOn([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '4';
   char tmpSend = 'a';
@@ -189,7 +185,7 @@ bool Garmin::callbackBeaconOn([[maybe_unused]] std_srvs::Trigger::Request &req, 
 
 /* callbackBeaconOff() //{ */
 
-bool Garmin::callbackBeaconOff([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackBeaconOff([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '5';
   char tmpSend = 'a';
@@ -214,7 +210,7 @@ bool Garmin::callbackBeaconOff([[maybe_unused]] std_srvs::Trigger::Request &req,
 
 /* callbackUvLedStartLeft() //{ */
 
-bool Garmin::callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool BacaProtocol::callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '1';
   char tmpSend = 'a';
@@ -246,7 +242,7 @@ bool Garmin::callbackUvLedStartLeft(std_srvs::SetBool::Request &req, std_srvs::S
 
 /* callbackUvLedStartRight() //{ */
 
-bool Garmin::callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool BacaProtocol::callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '2';
   char tmpSend = 'a';
@@ -279,7 +275,7 @@ bool Garmin::callbackUvLedStartRight(std_srvs::SetBool::Request &req, std_srvs::
 
 /* callbackUvLedStop() //{ */
 
-bool Garmin::callbackUvLedStop([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool BacaProtocol::callbackUvLedStop([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char id      = '3';
   char tmpSend = 'a';
@@ -305,7 +301,7 @@ bool Garmin::callbackUvLedStop([[maybe_unused]] std_srvs::Trigger::Request &req,
 
 /* callbackBoardSwitch() //{ */
 
-bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool BacaProtocol::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   char id      = '4';
   char tmpSend = 'a';
@@ -338,7 +334,7 @@ bool Garmin::callbackBoardSwitch(std_srvs::SetBool::Request &req, std_srvs::SetB
 
 /* fireTopicCallback //{ */
 
-void Garmin::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
+void BacaProtocol::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
   std_msgs::Bool mybool = *msg;
   if (mybool.data) {
     char id      = '9';
@@ -366,7 +362,7 @@ void Garmin::fireTopicCallback(const std_msgs::BoolConstPtr &msg) {
 
 /*  sendHeartbeat()//{ */
 
-void Garmin::sendHeartbeat() {
+void BacaProtocol::sendHeartbeat() {
 
   /* char id      = '5'; */
   /* char tmpSend = 'a'; */
@@ -388,13 +384,13 @@ void Garmin::sendHeartbeat() {
 
 /* connectToSensors() //{ */
 
-uint8_t Garmin::connectToSensor(void) {
+uint8_t BacaProtocol::connectToSensor(void) {
 
   // Create serial port
   serial_port_ = new serial_device::SerialPort();
 
   // Set callback function for the serial ports
-  serial_data_callback_function_ = boost::bind(&Garmin::serialDataCallback, this, _1);
+  serial_data_callback_function_ = boost::bind(&BacaProtocol::serialDataCallback, this, _1);
   serial_port_->setSerialCallbackFunction(&serial_data_callback_function_);
 
   // Connect serial port
@@ -415,7 +411,7 @@ uint8_t Garmin::connectToSensor(void) {
 
 /* releaseSerialLine() //{ */
 
-void Garmin::releaseSerialLine(void) {
+void BacaProtocol::releaseSerialLine(void) {
 
   delete serial_port_;
 }
@@ -424,7 +420,7 @@ void Garmin::releaseSerialLine(void) {
 
 /* serialDataCallback() //{ */
 
-void Garmin::serialDataCallback(uint8_t single_character) {
+void BacaProtocol::serialDataCallback(uint8_t single_character) {
 
   static uint8_t input_buffer[BUFFER_SIZE];
   static int     buffer_ctr        = 0;
@@ -473,11 +469,6 @@ void Garmin::serialDataCallback(uint8_t single_character) {
         if (payload_size == 2) {
           uint8_t message_id = input_buffer[0];
           uint8_t msg        = input_buffer[1];
-          if (message_id == 0x11 && msg == 0x11) {
-            std_srvs::Trigger trig;
-            t2_failsafe_service_client.call(trig);
-            ROS_ERROR_THROTTLE(1, "T2 Failsafe triggered!");
-          }
         } else if (payload_size == 3) {
           // just int16
           // input_buffer[0] message_id
@@ -551,7 +542,7 @@ void Garmin::serialDataCallback(uint8_t single_character) {
 
 /* setMode() //{ */
 
-void Garmin::setMode(char c) {
+void BacaProtocol::setMode(char c) {
 
   serial_port_->sendChar(c);
 }
@@ -562,9 +553,9 @@ void Garmin::setMode(char c) {
 
 int main(int argc, char **argv) {
 
-  ros::init(argc, argv, "Garmin");
+  ros::init(argc, argv, "BacaProtocol");
 
-  Garmin garmin_sensor;
+  BacaProtocol garmin_sensor;
 
   ros::Rate loop_rate(100);
 
@@ -576,12 +567,12 @@ int main(int argc, char **argv) {
 
       garmin_sensor.releaseSerialLine();
 
-      ROS_WARN("[%s]: Garmin not responding, resetting connection...", ros::this_node::getName().c_str());
+      ROS_WARN("[%s]: BacaProtocol not responding, resetting connection...", ros::this_node::getName().c_str());
 
       // if establishing the new connection was successfull
       if (garmin_sensor.connectToSensor() == 1) {
 
-        ROS_INFO("[%s]: New connection to Garmin was established.", ros::this_node::getName().c_str());
+        ROS_INFO("[%s]: New connection to BacaProtocol was established.", ros::this_node::getName().c_str());
       }
     }
     garmin_sensor.sendHeartbeat();

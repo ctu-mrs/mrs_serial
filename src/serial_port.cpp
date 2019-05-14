@@ -1,7 +1,7 @@
 #include <string>
 
-#include "garmin/serial_port.h"
-#include "garmin/garmin.h"
+#include "serial_port.h"
+#include "baca_protocol.h"
 
 namespace serial_device
 {

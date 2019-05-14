@@ -34,6 +34,6 @@ include_directories(
 )
 
 # make the executables
-add_executable(garmin src/garmin.cpp src/serial_port.cpp)
-add_dependencies(garmin ${catkin_EXPORTED_TARGETS})
-target_link_libraries(garmin ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(baca_protocol src/baca_protocol.cpp src/serial_port.cpp)
+add_dependencies(baca_protocol ${catkin_EXPORTED_TARGETS})
+target_link_libraries(baca_protocol ${catkin_LIBRARIES} ${Boost_LIBRARIES})
