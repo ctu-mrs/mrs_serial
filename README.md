@@ -50,7 +50,7 @@ bool checksum_correct
 by default, mrs_serial will only publish messages with correct checksums, other messages will be discraded.
 
 Here is an example of a Arduino function that will send a 16 bit integer through the serial line:
-```
+```c
 void send_data(uint16_t data) {
   uint8_t checksum = 0;
   uint8_t payload_size = 3;
