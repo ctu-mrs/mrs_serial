@@ -6,20 +6,16 @@
   <group ns="$(arg uav_name)">
 
     <!-- launch the node -->
-    <node name="baca_protocol" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <node name="mrs_serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/garmin"/>
 
       <!-- Publishers -->
-      <remap from="~range" to="~range" />
-      <remap from="~range_up" to="~range_up" />
+      <remap from="~range" to="/$(arg uav_name)/garmin/range" />
+      <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />
       <remap from="~profiler" to="profiler" />
-      <remap from="~gripper_diagnostics" to="gripper_diagnostics" />
-
-      <!--ServicesOut-->
-      <!-- <remap from="~t2_failsafe" to="control_manager/failsafe_escalating" /> -->
-      <remap from="~t2_failsafe" to="control_manager/NOTHING" />
+      <remap from="~baca_protocol_out" to="~received_message" />
 
       <!--ServicesIn-->
       <remap from="~netgun_fire" to="netgun_fire" />
@@ -28,6 +24,7 @@
 
       <!-- Subscribers -->
       <remap from="~fire_topic" to="fire_topic" />
+      <remap from="~baca_protocol_in" to="~send_message" />
 
     </node>
 
