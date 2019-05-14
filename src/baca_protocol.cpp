@@ -11,8 +11,7 @@
 
 #include "serial_port.h"
 
-// for serial port
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 256
 
 // for garmin
 #define MAXIMAL_TIME_INTERVAL 1
@@ -26,7 +25,16 @@ class BacaProtocol {
 public:
   BacaProtocol();
 
-  void    serialDataCallback(uint8_t data);
+  void serialDataCallback(uint8_t data);
+
+  enum serial_receiver_state
+  {
+    WAITING_FOR_MESSSAGE,
+    EXPECTING_SIZE,
+    EXPECTING_PAYLOAD,
+    EXPECTING_CHECKSUM
+  };
+
 
   ros::ServiceServer netgun_arm;
   ros::ServiceServer netgun_safe;
@@ -51,12 +59,14 @@ public:
 
   uint8_t connectToSensor(void);
   void    releaseSerialLine(void);
+  void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, bool checksum_correct);
 
   ros::Time lastReceived;
 
   ros::NodeHandle nh_;
   ros::Publisher  range_publisher_;
   ros::Publisher  range_publisher_up_;
+  ros::Publisher  baca_protocol_publisher_;
 
   ros::Subscriber fire_subscriber;
 
@@ -89,8 +99,9 @@ BacaProtocol::BacaProtocol() {
   nh_.param("enable_beacon", enable_beacon_, false);
 
   // Publishers
-  range_publisher_    = nh_.advertise<sensor_msgs::Range>("range", 1);
-  range_publisher_up_ = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
+  range_publisher_up_      = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   fire_subscriber = nh_.subscribe("fire_topic", 1, &BacaProtocol::fireTopicCallback, this, ros::TransportHints().tcpNoDelay());
 
@@ -445,103 +456,105 @@ void BacaProtocol::releaseSerialLine(void) {
 
 void BacaProtocol::serialDataCallback(uint8_t single_character) {
 
-  static uint8_t input_buffer[BUFFER_SIZE];
-  static int     buffer_ctr        = 0;
-  static uint8_t crc_in            = 0;
-  static int     payload_size      = 0;
-  static int     receiver_state    = 0;
-  static int     receiving_message = 0;
+  static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE;
+  static uint8_t               payload_size = 0;
+  static uint8_t               input_buffer[BUFFER_SIZE];
+  static uint8_t               buffer_counter = 0;
+  static uint8_t               checksum       = 0;
 
-  if (receiving_message == 1) {
+  switch (rec_state) {
+    case WAITING_FOR_MESSSAGE:
 
-    // expecting to receive the payload size
-    if (receiver_state == 0) {
-
-      // check the message length
-      if (single_character >= 0 && single_character < 64) {
-
-        payload_size   = single_character;
-        receiver_state = 1;
-        crc_in += single_character;
-
-        // the receiving message is over the buffer size
-      } else {
-
-        receiving_message = 0;
-        receiver_state    = 0;
-        ROS_WARN("[%s] reveived expected size out of bounds <0,63>, reset buffer without evaluating data", ros::this_node::getName().c_str());
+      if (single_character == 'b' ||
+          single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b'
+        checksum       = single_character;
+        buffer_counter = 0;
+        rec_state      = EXPECTING_SIZE;
       }
+      break;
 
-      // expecting to receive the payload
-    } else if (receiver_state == 1) {
+    case EXPECTING_SIZE:
 
-      // put the char in the buffer
-      input_buffer[buffer_ctr++] = single_character;
-      // add crc
-      crc_in += single_character;
-
-      // if the message should end, change state
-      if (buffer_ctr >= payload_size)
-        receiver_state = 2;
-
-      // expecting to receive the crc
-    } else if (receiver_state == 2) {
-
-      if (crc_in == single_character) {
-        receiving_message = 0;
-        if (payload_size == 2) {
-          uint8_t message_id = input_buffer[0];
-          uint8_t msg        = input_buffer[1];
-        } else if (payload_size == 3) {
-          // just int16
-          // input_buffer[0] message_id
-          uint8_t message_id = input_buffer[0];
-          int16_t range      = input_buffer[1] << 8;
-          range |= input_buffer[2];
-
-          sensor_msgs::Range range_msg;
-          range_msg.field_of_view  = 0.0523599;  // +-3 degree
-          range_msg.max_range      = MAX_RANGE * 0.01;
-          range_msg.min_range      = MIN_RANGE * 0.01;
-          range_msg.radiation_type = sensor_msgs::Range::INFRARED;
-          range_msg.header.stamp   = ros::Time::now();
-
-          range_msg.range = range * 0.01;  // convert to m
-
-          if (range > MAX_RANGE) {
-            range_msg.range = std::numeric_limits<double>::infinity();
-          } else if (range < MIN_RANGE) {
-            range_msg.range = -std::numeric_limits<double>::infinity();
-          }
-
-          if (message_id == 0x00) {
-            range_msg.header.frame_id = "garmin_frame";
-            range_publisher_.publish(range_msg);
-          } else if (message_id == 0x01) {
-            range_msg.header.frame_id = "garmin_frame_up";
-            range_publisher_up_.publish(range_msg);
-          }
-          lastReceived = ros::Time::now();
-
-          ROS_DEBUG("[%s] all good %.3f m", ros::this_node::getName().c_str(), range * 0.01);
-        }
-
+      if (single_character == 0) {
+        ROS_ERROR("[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str());
+        rec_state = WAITING_FOR_MESSSAGE;
       } else {
-        ROS_DEBUG("[%s] crc missmatch", ros::this_node::getName().c_str());
-        receiving_message = 0;
-        receiver_state    = 0;
+        payload_size = single_character;
+        checksum += single_character;
+        rec_state = EXPECTING_PAYLOAD;
       }
+      break;
+
+    case EXPECTING_PAYLOAD:
+
+      input_buffer[buffer_counter] = single_character;
+      checksum += single_character;
+      buffer_counter++;
+      if (buffer_counter >= payload_size) {
+        rec_state = EXPECTING_CHECKSUM;
+      }
+      break;
+
+    case EXPECTING_CHECKSUM:
+
+      if (checksum == single_character) {
+        processMessage(payload_size, input_buffer, checksum, true);
+        lastReceived = ros::Time::now();
+        rec_state    = WAITING_FOR_MESSSAGE;
+      } else {
+        ROS_ERROR_STREAM("[ " << ros::this_node::getName().c_str() << "]: Message with bad crc received, received: " << static_cast<unsigned>(single_character)
+                              << ", calculated: " << static_cast<unsigned>(checksum));
+        rec_state = WAITING_FOR_MESSSAGE;
+      }
+      break;
+  }
+}
+
+//}
+
+/* processMessage() //{ */
+
+void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, bool checksum_correct) {
+
+  if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) {
+    /* Special message reserved for garmin rangefinder */
+    uint8_t message_id = input_buffer[0];
+    int16_t range      = input_buffer[1] << 8;
+    range |= input_buffer[2];
+
+    sensor_msgs::Range range_msg;
+    range_msg.field_of_view  = 0.0523599;  // +-3 degree
+    range_msg.max_range      = MAX_RANGE * 0.01;
+    range_msg.min_range      = MIN_RANGE * 0.01;
+    range_msg.radiation_type = sensor_msgs::Range::INFRARED;
+    range_msg.header.stamp   = ros::Time::now();
+
+    range_msg.range = range * 0.01;  // convert to m
+
+    if (range > MAX_RANGE) {
+      range_msg.range = std::numeric_limits<double>::infinity();
+    } else if (range < MIN_RANGE) {
+      range_msg.range = -std::numeric_limits<double>::infinity();
     }
 
+    if (message_id == 0x00) {
+      range_msg.header.frame_id = "garmin_frame";
+      range_publisher_.publish(range_msg);
+    } else if (message_id == 0x01) {
+      range_msg.header.frame_id = "garmin_frame_up";
+      range_publisher_up_.publish(range_msg);
+    }
   } else {
-    // this character precedes every message
-    if (single_character == 'b') {
-
-      receiving_message = 1;
-      receiver_state    = 0;
-      buffer_ctr        = 0;
-      crc_in            = single_character;
+    /* General serial message */
+    mrs_msgs::BacaProtocol msg;
+    msg.stamp = ros::Time::now();
+    for (uint8_t i = 0; i < payload_size; i++) {
+      msg.payload.push_back(input_buffer[i]);
     }
+    msg.checksum         = checksum;
+    msg.checksum_correct = checksum_correct;
+    ROS_INFO("[%s]: published", ros::this_node::getName().c_str());
+    baca_protocol_publisher_.publish(msg);
   }
 }
 

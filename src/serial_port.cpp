@@ -93,7 +93,7 @@ void SerialPort::serialThread() {
   while (!serial_thread_should_exit_ && ros::ok()) {
     try {
 
-      while (read(serial_port_fd_, &single_character, 1)) {
+      if (read(serial_port_fd_, &single_character, 1)) {
 
         (*serial_callback_function)(single_character);
       }
