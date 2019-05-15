@@ -1,6 +1,8 @@
 #ifndef SERIAL_PORT_H_
 #define SERIAL_PORT_H_
 
+#include <ros/package.h>
+#include <ros/ros.h>
 #include <stdio.h>    // Standard input/output definitions
 #include <string.h>   // String function definitions
 #include <unistd.h>   // UNIX standard function definitions
