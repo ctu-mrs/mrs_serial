@@ -8,9 +8,10 @@
     <!-- launch the node -->
     <node name="mrs_serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
+      <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
+
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/garmin"/>
-
       <!-- Publishers -->
       <remap from="~range" to="/$(arg uav_name)/garmin/range" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />

@@ -15,8 +15,9 @@
 
 #define BUFFER_SIZE 256
 
-// for garmin
 #define MAXIMAL_TIME_INTERVAL 1
+
+// for garmin
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
 
@@ -49,20 +50,26 @@ public:
 
   uint8_t connectToSensor(void);
   void    releaseSerialLine(void);
-  void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, bool checksum_correct);
+  void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
 
   ros::Time lastReceived;
+  ros::Time lastPrinted;
 
   ros::NodeHandle nh_;
 
-  ros::Publisher  range_publisher_;
-  ros::Publisher  range_publisher_up_;
-  ros::Publisher  baca_protocol_publisher_;
+  ros::Publisher range_publisher_;
+  ros::Publisher range_publisher_up_;
+  ros::Publisher baca_protocol_publisher_;
 
   ros::Subscriber baca_protocol_subscriber;
 
   serial_device::SerialPort *    serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
+
+  bool     publish_bad_checksum;
+  uint16_t received_msg_ok           = 0;
+  uint16_t received_msg_ok_garmin    = 0;
+  uint16_t received_msg_bad_checksum = 0;
 
   std::string portname_;
 
@@ -81,6 +88,7 @@ BacaProtocol::BacaProtocol() {
   ros::Time::waitForValid();
 
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("publish_bad_checksum", publish_bad_checksum, false);
 
   // Publishers
   range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -97,7 +105,9 @@ BacaProtocol::BacaProtocol() {
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO("[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+  ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
   lastReceived = ros::Time::now();
+  lastPrinted  = ros::Time::now();
 
   connectToSensor();
 }
@@ -116,7 +126,7 @@ bool BacaProtocol::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Reques
 
   mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
   callbackSendMessage(const_msg);
-  
+
   ROS_INFO("Safing net gun");
   res.message = "Safing net gun";
   res.success = true;
@@ -136,7 +146,7 @@ bool BacaProtocol::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request
 
   mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
   callbackSendMessage(const_msg);
-  
+
   ROS_INFO("Arming net gun");
   res.message = "Arming net gun";
   res.success = true;
@@ -149,14 +159,14 @@ bool BacaProtocol::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request
 /* callbackNetgunFire() //{ */
 
 bool BacaProtocol::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-  
+
   mrs_msgs::BacaProtocol msg;
   msg.stamp = ros::Time::now();
   msg.payload.push_back('9');
 
   mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
   callbackSendMessage(const_msg);
-  
+
   ROS_INFO("Firing net gun");
   res.message = "Firing net gun";
   res.success = true;
@@ -211,12 +221,14 @@ void BacaProtocol::callbackSerialData(uint8_t single_character) {
     case EXPECTING_CHECKSUM:
 
       if (checksum == single_character) {
-        processMessage(payload_size, input_buffer, checksum, true);
+        processMessage(payload_size, input_buffer, checksum, single_character, true);
         lastReceived = ros::Time::now();
         rec_state    = WAITING_FOR_MESSSAGE;
       } else {
-        ROS_ERROR_STREAM("[ " << ros::this_node::getName().c_str() << "]: Message with bad checksum received, received: " << static_cast<unsigned>(single_character)
-                              << ", calculated: " << static_cast<unsigned>(checksum));
+        if (publish_bad_checksum) {
+          processMessage(payload_size, input_buffer, checksum, single_character, false);
+        }
+        received_msg_bad_checksum++;
         rec_state = WAITING_FOR_MESSSAGE;
       }
       break;
@@ -254,10 +266,11 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
 
 /* processMessage() //{ */
 
-void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, bool checksum_correct) {
+void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct) {
 
   if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) {
     /* Special message reserved for garmin rangefinder */
+    received_msg_ok_garmin++;
     uint8_t message_id = input_buffer[0];
     int16_t range      = input_buffer[1] << 8;
     range |= input_buffer[2];
@@ -286,14 +299,17 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     }
   } else {
     /* General serial message */
+    if (checksum_correct) {
+      received_msg_ok++;
+    }
     mrs_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);
     }
-    msg.checksum         = checksum;
-    msg.checksum_correct = checksum_correct;
-    ROS_INFO("[%s]: published", ros::this_node::getName().c_str());
+    msg.checksum_received   = checksum_rec;
+    msg.checksum_calculated = checksum;
+    msg.checksum_correct    = checksum_correct;
     baca_protocol_publisher_.publish(msg);
   }
 }
@@ -349,17 +365,28 @@ int main(int argc, char **argv) {
   while (ros::ok()) {
 
     // check whether the teraranger stopped sending data
-    ros::Duration interval = ros::Time::now() - serial_line.lastReceived;
+    ros::Duration interval  = ros::Time::now() - serial_line.lastReceived;
+    ros::Duration interval2 = ros::Time::now() - serial_line.lastPrinted;
+
+    if (interval2.toSec() > 1.0) {
+      ROS_INFO_STREAM("Got msgs - Garmin: " << serial_line.received_msg_ok_garmin << " Generic msg: " << serial_line.received_msg_ok
+                                            << "  Wrong checksum: " << serial_line.received_msg_bad_checksum << "; in the last " << interval2.toSec() << " s");
+      serial_line.received_msg_ok_garmin    = 0;
+      serial_line.received_msg_ok           = 0;
+      serial_line.received_msg_bad_checksum = 0;
+      serial_line.lastPrinted               = ros::Time::now();
+    }
+
     if (interval.toSec() > MAXIMAL_TIME_INTERVAL) {
 
       serial_line.releaseSerialLine();
 
-      ROS_WARN("[%s]: BacaProtocol not responding, resetting connection...", ros::this_node::getName().c_str());
+      ROS_WARN("[%s]: Serial device not responding, resetting connection...", ros::this_node::getName().c_str());
 
       // if establishing the new connection was successfull
       if (serial_line.connectToSensor() == 1) {
 
-        ROS_INFO("[%s]: New connection to BacaProtocol was established.", ros::this_node::getName().c_str());
+        ROS_INFO("[%s]: New connection to Serial device was established.", ros::this_node::getName().c_str());
       }
     }
     ros::spinOnce();
