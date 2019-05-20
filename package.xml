@@ -2,7 +2,7 @@
 <package format="2">
 
   <name>mrs_serial</name>
-  <version>0.0.0</version>
+  <version>0.0.1</version>
   <description>driver for reading messages from serial line</description>
 
   <maintainer email="hertdani@fel.cvut.cz">Daniel Hert</maintainer>
