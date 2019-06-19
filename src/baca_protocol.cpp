@@ -10,6 +10,7 @@
 
 #include <string>
 #include <mrs_msgs/BacaProtocol.h>
+#include <mrs_msgs/GimbalPitch.h>
 
 #include "serial_port.h"
 
@@ -42,10 +43,12 @@ public:
   ros::ServiceServer netgun_arm;
   ros::ServiceServer netgun_safe;
   ros::ServiceServer netgun_fire;
+  ros::ServiceServer gimbal_pitch;
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res);
   void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
 
   uint8_t connectToSensor(void);
@@ -71,6 +74,9 @@ public:
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
 
+  int gimbal_pitch_limit_lower_,
+      gimbal_pitch_limit_upper_;
+
   std::string portname_;
 
   std::mutex mutex_msg;
@@ -89,6 +95,8 @@ BacaProtocol::BacaProtocol() {
 
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
+  nh_.param("gimbal/pitch/lim_lower", gimbal_pitch_limit_lower_, -15);
+  nh_.param("gimbal/pitch/lim_upper", gimbal_pitch_limit_upper_,  15);
 
   // Publishers
   range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -98,9 +106,10 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
   // service out
-  netgun_arm  = nh_.advertiseService("netgun_arm", &BacaProtocol::callbackNetgunArm, this);
-  netgun_safe = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
-  netgun_fire = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
+  netgun_arm   = nh_.advertiseService("netgun_arm", &BacaProtocol::callbackNetgunArm, this);
+  netgun_safe  = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
+  netgun_fire  = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
+  gimbal_pitch = nh_.advertiseService("gimbal_pitch", &BacaProtocol::callbackGimbalPitch, this);
 
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -258,6 +267,36 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
     serial_port_->sendChar(tmp_send);
   }
   serial_port_->sendChar(checksum);
+}
+
+//}
+
+/* callbackGimbalPitch() //{ */
+
+bool BacaProtocol::callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res) {
+  int pitch = req.pitch;
+  if (pitch < gimbal_pitch_limit_lower_) {
+    pitch = gimbal_pitch_limit_lower_;
+    ROS_INFO("[GIMBAL] Pitch saturation to lower limit: %d deg", pitch);
+  } else if (pitch > gimbal_pitch_limit_upper_) {
+    pitch = gimbal_pitch_limit_upper_;
+    ROS_INFO("[GIMBAL] Pitch saturation to upper limit: %d deg", pitch);
+  }
+  
+  mrs_msgs::BacaProtocol msg;
+  msg.stamp = ros::Time::now();
+  // Map angle to 1-255 (0 remains reserved for failures)
+  uint8_t pitch_remapped = ((pitch - gimbal_pitch_limit_lower_) * 254 / (gimbal_pitch_limit_upper_ - gimbal_pitch_limit_lower_)) + 1;
+  msg.payload.push_back(pitch_remapped);
+
+  mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
+  callbackSendMessage(const_msg);
+
+  ROS_INFO("[GIMBAL] Pitch command set to: %d deg", pitch);
+  res.message = "Gimbal pitch set successfully.";
+  res.success = true;
+
+  return true;
 }
 
 //}

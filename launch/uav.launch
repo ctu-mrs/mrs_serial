@@ -28,6 +28,7 @@
       <remap from="~netgun_fire" to="netgun_fire" />
       <remap from="~netgun_arm" to="netgun_arm" />
       <remap from="~netgun_safe" to="netgun_safe" />
+      <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
 
       <!-- Subscribers -->
       <remap from="~fire_topic" to="fire_topic" />

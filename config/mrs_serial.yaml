@@ -1,1 +1,6 @@
 publish_bad_checksum: false # mrs_serial will publish messages with incorrect checksums
+
+gimbal:
+  pitch:
+    lim_lower: -30
+    lim_upper: 30
