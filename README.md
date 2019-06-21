@@ -36,7 +36,7 @@ payload_size = 1 && message_id = '9'(0x39)   >> netgun fire (eagle)
 
 ## How to use - getting data from a serial device to ROS
 
-Here is an example of a Arduino function that will send a 16 bit integer through the serial line, using the protocol described above:
+Here is an example of an Arduino function that will send a 16 bit integer through the serial line, using the protocol described above:
 ```c
 void send_data(uint16_t data) {
   uint8_t checksum = 0;
