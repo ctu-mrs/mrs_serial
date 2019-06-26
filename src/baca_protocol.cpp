@@ -5,7 +5,7 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
-#include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
 #include <mutex>
 
 #include <string>
@@ -23,9 +23,9 @@
 #define MIN_RANGE 10    // cm
 
 
-/* class BacaProtocol //{ */
+    /* class BacaProtocol //{ */
 
-class BacaProtocol {
+    class BacaProtocol {
 public:
   BacaProtocol();
 
@@ -50,6 +50,8 @@ public:
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res);
   void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
+  void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
+
 
   uint8_t connectToSensor(void);
   void    releaseSerialLine(void);
@@ -65,6 +67,7 @@ public:
   ros::Publisher baca_protocol_publisher_;
 
   ros::Subscriber baca_protocol_subscriber;
+  ros::Subscriber magnet_subscriber;
 
   serial_device::SerialPort *    serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
@@ -74,8 +77,7 @@ public:
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
 
-  int gimbal_pitch_limit_lower_,
-      gimbal_pitch_limit_upper_;
+  int gimbal_pitch_limit_lower_, gimbal_pitch_limit_upper_;
 
   std::string portname_;
 
@@ -96,7 +98,7 @@ BacaProtocol::BacaProtocol() {
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("gimbal/pitch/lim_lower", gimbal_pitch_limit_lower_, -15);
-  nh_.param("gimbal/pitch/lim_upper", gimbal_pitch_limit_upper_,  15);
+  nh_.param("gimbal/pitch/lim_upper", gimbal_pitch_limit_upper_, 15);
 
   // Publishers
   range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -104,9 +106,9 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
+  magnet_subscriber        = nh_.subscribe("magnet_in", 1, &BacaProtocol::callbackMagnet, this, ros::TransportHints().tcpNoDelay());
 
-  // service out
-  netgun_arm   = nh_.advertiseService("netgun_arm", &BacaProtocol::callbackNetgunArm, this);
+
   netgun_safe  = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
   netgun_fire  = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
   gimbal_pitch = nh_.advertiseService("gimbal_pitch", &BacaProtocol::callbackGimbalPitch, this);
@@ -249,6 +251,7 @@ void BacaProtocol::callbackSerialData(uint8_t single_character) {
 /* callbackSendMessage() //{ */
 
 void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
+  ROS_INFO_STREAM("SENDING CHAR " << msg->payload[0]);
 
   std::scoped_lock lock(mutex_msg);
   uint8_t          payload_size = msg->payload.size();
@@ -271,6 +274,29 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
 
 //}
 
+/* callbackMagnet() //{ */
+
+void BacaProtocol::callbackMagnet(const std_msgs::EmptyConstPtr &msg) {
+  uint8_t          payload_size = 1;
+  uint8_t          tmp_send     = 'b';
+  uint8_t          checksum     = 0;
+
+  serial_port_->sendChar(tmp_send);
+  checksum += tmp_send;
+
+  serial_port_->sendChar(payload_size);
+  checksum += payload_size;
+
+  for (int i = 0; i < payload_size; i++) {
+    tmp_send = '7';
+    checksum += tmp_send;
+    serial_port_->sendChar(tmp_send);
+  }
+  serial_port_->sendChar(checksum);
+}
+
+//}
+
 /* callbackGimbalPitch() //{ */
 
 bool BacaProtocol::callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res) {
@@ -282,7 +308,7 @@ bool BacaProtocol::callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_
     pitch = gimbal_pitch_limit_upper_;
     ROS_INFO("[GIMBAL] Pitch saturation to upper limit: %d deg", pitch);
   }
-  
+
   mrs_msgs::BacaProtocol msg;
   msg.stamp = ros::Time::now();
   // Map angle to 1-255 (0 remains reserved for failures)

@@ -12,12 +12,12 @@
   <group ns="$(arg uav_name)">
 
     <!-- launch the node -->
-    <node name="mrs_serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <node name="mrs_serial_gripper" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
-      <param name="portname" value="/dev/garmin"/>
+      <param name="portname" value="/dev/gripper"/>
       <!-- Publishers -->
       <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
@@ -25,12 +25,13 @@
       <remap from="~baca_protocol_out" to="~received_message" />
 
       <!--ServicesIn-->
-      <remap from="~netgun_fire" to="netgun_fire" />
+      <remap from="~netgun_fire" to="grip" />
       <remap from="~netgun_arm" to="netgun_arm" />
-      <remap from="~netgun_safe" to="netgun_safe" />
+      <remap from="~netgun_safe" to="ungrip" />
       <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
 
       <!-- Subscribers -->
+      <remap from="~magnet_in" to="release" />
       <remap from="~baca_protocol_in" to="~send_message" />
 
     </node>
