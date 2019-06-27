@@ -31,7 +31,7 @@
       <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
 
       <!-- Subscribers -->
-      <remap from="~magnet_in" to="release" />
+      <remap from="~magnet_in" to="ungrip" />
       <remap from="~baca_protocol_in" to="~send_message" />
 
     </node>
