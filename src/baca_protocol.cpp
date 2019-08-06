@@ -16,16 +16,16 @@
 
 #define BUFFER_SIZE 256
 
-#define MAXIMAL_TIME_INTERVAL 1
+#define MAXIMAL_TIME_INTERVAL 3
 
 // for garmin
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
 
 
-    /* class BacaProtocol //{ */
+/* class BacaProtocol //{ */
 
-    class BacaProtocol {
+class BacaProtocol {
 public:
   BacaProtocol();
 
@@ -44,6 +44,8 @@ public:
   ros::ServiceServer netgun_safe;
   ros::ServiceServer netgun_fire;
   ros::ServiceServer gimbal_pitch;
+
+  ros::ServiceClient service_estop;
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -112,6 +114,8 @@ BacaProtocol::BacaProtocol() {
   netgun_safe  = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
   netgun_fire  = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
   gimbal_pitch = nh_.advertiseService("gimbal_pitch", &BacaProtocol::callbackGimbalPitch, this);
+
+  service_estop = nh_.serviceClient<std_srvs::Trigger::Request>("eland");
 
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -277,9 +281,9 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
 /* callbackMagnet() //{ */
 
 void BacaProtocol::callbackMagnet(const std_msgs::EmptyConstPtr &msg) {
-  uint8_t          payload_size = 1;
-  uint8_t          tmp_send     = 'b';
-  uint8_t          checksum     = 0;
+  uint8_t payload_size = 1;
+  uint8_t tmp_send     = 'b';
+  uint8_t checksum     = 0;
 
   serial_port_->sendChar(tmp_send);
   checksum += tmp_send;
@@ -333,6 +337,16 @@ bool BacaProtocol::callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_
 
 void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct) {
 
+  if (payload_size == 2 && (input_buffer[0] == 0x10) && checksum_correct) {
+    if (input_buffer[1] == 0x00) {
+
+      std_srvs::Trigger req;
+      service_estop.call(req);
+      ROS_ERROR("Tier 2 Estop triggered!!!");
+    } else {
+      ROS_INFO("Estop idle");
+    }
+  }
   if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) {
     /* Special message reserved for garmin rangefinder */
     received_msg_ok_garmin++;
