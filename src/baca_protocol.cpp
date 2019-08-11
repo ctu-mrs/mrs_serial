@@ -454,6 +454,15 @@ int main(int argc, char **argv) {
       serial_line.received_msg_ok           = 0;
       serial_line.received_msg_bad_checksum = 0;
       serial_line.lastPrinted               = ros::Time::now();
+
+
+      mrs_msgs::BacaProtocol msg;
+      msg.stamp = ros::Time::now();
+      msg.payload.push_back(0x20);
+
+      mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
+      serial_line.callbackSendMessage(const_msg);
+      ROS_INFO("Sending heartbeat");
     }
 
     if (interval.toSec() > MAXIMAL_TIME_INTERVAL) {

@@ -17,7 +17,7 @@
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
-      <param name="portname" value="/dev/failsafe"/>
+      <param name="portname" value="/dev/estop"/>
       <!-- Publishers -->
       <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
