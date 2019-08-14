@@ -19,8 +19,8 @@
 #define MAXIMAL_TIME_INTERVAL 3
 
 // for garmin
-#define MAX_RANGE 4000  // cm
-#define MIN_RANGE 10    // cm
+#define MAX_RANGE 400  // cm
+#define MIN_RANGE 5    // cm
 
 
 /* class BacaProtocol //{ */
@@ -344,10 +344,10 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
       service_estop.call(req);
       ROS_ERROR("Tier 2 Estop triggered!!!");
     } else {
-      ROS_INFO("Estop idle");
+      ROS_INFO_THROTTLE(1.0, "Estop idle");
     }
   }
-  if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) {
+  if (payload_size == 3 && (input_buffer[0] == 0x09 || input_buffer[0] == 0x01) && checksum_correct) {
     /* Special message reserved for garmin rangefinder */
     received_msg_ok_garmin++;
     uint8_t message_id = input_buffer[0];
@@ -360,8 +360,7 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     range_msg.min_range      = MIN_RANGE * 0.01;
     range_msg.radiation_type = sensor_msgs::Range::INFRARED;
     range_msg.header.stamp   = ros::Time::now();
-
-    range_msg.range = range * 0.01;  // convert to m
+    range_msg.range          = range * 0.01;  // convert to m
 
     if (range > MAX_RANGE) {
       range_msg.range = std::numeric_limits<double>::infinity();
@@ -369,12 +368,15 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
       range_msg.range = -std::numeric_limits<double>::infinity();
     }
 
-    if (message_id == 0x00) {
-      range_msg.header.frame_id = "garmin_frame";
-      range_publisher_.publish(range_msg);
-    } else if (message_id == 0x01) {
-      range_msg.header.frame_id = "garmin_frame_up";
-      range_publisher_up_.publish(range_msg);
+    if (message_id == 0x09) {
+      range_msg.header.frame_id = "ultrasound_frame";
+
+      /* if (range <= 400 && range > 5) { */
+        range_publisher_.publish(range_msg);
+      /* } */
+      /* } else if (message_id == 0x01) { */
+      /*   range_msg.header.frame_id = "garmin_frame_up"; */
+      /*   range_publisher_up_.publish(range_msg); */
     }
   } else {
     /* General serial message */
