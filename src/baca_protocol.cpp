@@ -20,7 +20,7 @@
 
 // for garmin
 #define MAX_RANGE 400  // cm
-#define MIN_RANGE 5    // cm
+#define MIN_RANGE 1    // cm
 
 
 /* class BacaProtocol //{ */
