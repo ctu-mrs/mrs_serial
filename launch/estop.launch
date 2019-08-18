@@ -19,7 +19,8 @@
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/estop"/>
       <!-- Publishers -->
-      <remap from="~range" to="/$(arg uav_name)/ultrasound/$(arg range)" />
+      <!-- <remap from="~range" to="/$(arg uav_name)/ultrasound/$(arg range)" /> -->
+      <remap from="~range" to="not_ultrasound" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
       <remap from="~profiler" to="profiler" />
       <remap from="~baca_protocol_out" to="~received_message" />
