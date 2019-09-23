@@ -18,6 +18,8 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/gripper"/>
+      <param name="use_timeout" value="false"/>
+        
       <!-- Publishers -->
       <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />

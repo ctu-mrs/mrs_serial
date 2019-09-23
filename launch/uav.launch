@@ -18,7 +18,9 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="/dev/garmin"/>
-      <!-- Publishers -->
+      <param name="use_timeout" value="true"/>
+        
+        <!-- Publishers -->
       <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
       <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
       <remap from="~profiler" to="profiler" />

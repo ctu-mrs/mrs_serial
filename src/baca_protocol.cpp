@@ -10,7 +10,6 @@
 
 #include <string>
 #include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/GimbalPitch.h>
 
 #include "serial_port.h"
 
@@ -73,6 +72,7 @@ public:
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
+  bool     use_timeout;
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
@@ -97,8 +97,7 @@ BacaProtocol::BacaProtocol() {
 
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
-  nh_.param("gimbal/pitch/lim_lower", gimbal_pitch_limit_lower_, -15);
-  nh_.param("gimbal/pitch/lim_upper", gimbal_pitch_limit_upper_, 15);
+  nh_.param("use_timeout", use_timeout, true);
 
   // Publishers
   range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
@@ -106,12 +105,6 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
-  magnet_subscriber        = nh_.subscribe("magnet_in", 1, &BacaProtocol::callbackMagnet, this, ros::TransportHints().tcpNoDelay());
-
-
-  netgun_safe  = nh_.advertiseService("netgun_safe", &BacaProtocol::callbackNetgunSafe, this);
-  netgun_fire  = nh_.advertiseService("netgun_fire", &BacaProtocol::callbackNetgunFire, this);
-  gimbal_pitch = nh_.advertiseService("gimbal_pitch", &BacaProtocol::callbackGimbalPitch, this);
 
   // Output loaded parameters to console for double checking
   ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -126,65 +119,6 @@ BacaProtocol::BacaProtocol() {
 //}
 
 // | ------------------------ callbacks ------------------------ |
-
-/*  callbackNetgunSafe()//{ */
-
-bool BacaProtocol::callbackNetgunSafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  mrs_msgs::BacaProtocol msg;
-  msg.stamp = ros::Time::now();
-  msg.payload.push_back('7');
-
-  mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
-  callbackSendMessage(const_msg);
-
-  ROS_INFO("Safing net gun");
-  res.message = "Safing net gun";
-  res.success = true;
-
-  return true;
-}
-
-//}
-
-/* callbackNetgunArm() //{ */
-
-bool BacaProtocol::callbackNetgunArm([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  mrs_msgs::BacaProtocol msg;
-  msg.stamp = ros::Time::now();
-  msg.payload.push_back('8');
-
-  mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
-  callbackSendMessage(const_msg);
-
-  ROS_INFO("Arming net gun");
-  res.message = "Arming net gun";
-  res.success = true;
-
-  return true;
-}
-
-//}
-
-/* callbackNetgunFire() //{ */
-
-bool BacaProtocol::callbackNetgunFire([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  mrs_msgs::BacaProtocol msg;
-  msg.stamp = ros::Time::now();
-  msg.payload.push_back('9');
-
-  mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
-  callbackSendMessage(const_msg);
-
-  ROS_INFO("Firing net gun");
-  res.message = "Firing net gun";
-  res.success = true;
-  return true;
-}
-
-//}
 
 /* callbackSerialData() //{ */
 
@@ -270,59 +204,6 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
     serial_port_->sendChar(tmp_send);
   }
   serial_port_->sendChar(checksum);
-}
-
-//}
-
-/* callbackMagnet() //{ */
-
-void BacaProtocol::callbackMagnet(const std_msgs::EmptyConstPtr &msg) {
-  uint8_t          payload_size = 1;
-  uint8_t          tmp_send     = 'b';
-  uint8_t          checksum     = 0;
-
-  serial_port_->sendChar(tmp_send);
-  checksum += tmp_send;
-
-  serial_port_->sendChar(payload_size);
-  checksum += payload_size;
-
-  for (int i = 0; i < payload_size; i++) {
-    tmp_send = '7';
-    checksum += tmp_send;
-    serial_port_->sendChar(tmp_send);
-  }
-  serial_port_->sendChar(checksum);
-}
-
-//}
-
-/* callbackGimbalPitch() //{ */
-
-bool BacaProtocol::callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res) {
-  int pitch = req.pitch;
-  if (pitch < gimbal_pitch_limit_lower_) {
-    pitch = gimbal_pitch_limit_lower_;
-    ROS_INFO("[GIMBAL] Pitch saturation to lower limit: %d deg", pitch);
-  } else if (pitch > gimbal_pitch_limit_upper_) {
-    pitch = gimbal_pitch_limit_upper_;
-    ROS_INFO("[GIMBAL] Pitch saturation to upper limit: %d deg", pitch);
-  }
-
-  mrs_msgs::BacaProtocol msg;
-  msg.stamp = ros::Time::now();
-  // Map angle to 1-255 (0 remains reserved for failures)
-  uint8_t pitch_remapped = ((pitch - gimbal_pitch_limit_lower_) * 254 / (gimbal_pitch_limit_upper_ - gimbal_pitch_limit_lower_)) + 1;
-  msg.payload.push_back(pitch_remapped);
-
-  mrs_msgs::BacaProtocolConstPtr const_msg(new mrs_msgs::BacaProtocol(msg));
-  callbackSendMessage(const_msg);
-
-  ROS_INFO("[GIMBAL] Pitch command set to: %d deg", pitch);
-  res.message = "Gimbal pitch set successfully.";
-  res.success = true;
-
-  return true;
 }
 
 //}
@@ -442,7 +323,7 @@ int main(int argc, char **argv) {
       serial_line.lastPrinted               = ros::Time::now();
     }
 
-    if (interval.toSec() > MAXIMAL_TIME_INTERVAL) {
+    if (interval.toSec() > MAXIMAL_TIME_INTERVAL && serial_line.use_timeout) {
 
       serial_line.releaseSerialLine();
 
