@@ -42,12 +42,10 @@ public:
   ros::ServiceServer netgun_arm;
   ros::ServiceServer netgun_safe;
   ros::ServiceServer netgun_fire;
-  ros::ServiceServer gimbal_pitch;
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackGimbalPitch(mrs_msgs::GimbalPitch::Request &req, mrs_msgs::GimbalPitch::Response &res);
   void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
@@ -76,8 +74,6 @@ public:
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
-
-  int gimbal_pitch_limit_lower_, gimbal_pitch_limit_upper_;
 
   std::string portname_;
 
