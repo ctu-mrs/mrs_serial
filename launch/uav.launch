@@ -12,7 +12,7 @@
   <group ns="$(arg uav_name)">
 
     <!-- launch the node -->
-    <node name="mrs_serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <node name="serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
