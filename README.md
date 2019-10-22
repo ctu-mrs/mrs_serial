@@ -9,7 +9,7 @@ The protocol for serial communication used at MRS (Baca protocol) is defined as 
 
 Each character inside [] brackets reperesents one 8 bit value.
 the first byte is the character 'b', which represents the start of a message.
-Next byte is the payload size. Payload of the message can be 1 to 256 bytes long.
+Next byte is the payload size. Payload of the message can be 1 to 255 bytes long.
 First byte of the payload is message_id, which is user defined and
 serves to differentiate between different messages of the same length.
 The message_id can be followed by other payload bytes.
@@ -23,10 +23,12 @@ value. If they match, the message is considered valid, if they do not match, the
 
 ## Reserved messages
 
-Following messages are already reserved for parts of the MRS system, avoid using them:
+Messages with IDs from (0) 0x00 to 100 (0x64) are reserved for parts of the MRS system, avoid using them.
+Messages used by MRS system so far:
 ```
 payload_size = 3 && message_id = 0   >> Garmin rangefinder
 payload_size = 3 && message_id = 1   >> Garmin rangefinder (up)
+payload_size = 3 && message_id = 2   >> Garmin rangefinder (extra)
 payload_size = 1 && message_id = (0x40)   >> Gripper on with calibration
 payload_size = 1 && message_id = (0x41)   >> Gripper off
 payload_size = 1 && message_id = (0x42)   >> Gripper on, no calibration
@@ -36,6 +38,10 @@ payload_size = 1 && message_id = '5'(0x35)   >> Beacon off (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
 payload_size = 1 && message_id = '8'(0x38)   >> netgun arm (eagle)
 payload_size = 1 && message_id = '9'(0x39)   >> netgun fire (eagle)
+payload_size = 1 && message_id = 85(0x55)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
+payload_size = 1 && message_id = 86(0x56)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
+
+IDs 90(0x5a) - 99(0x63) are reserved by UVDAR, but not set yet. It is possible that some of them will free up.
 ```
 
 ## How to use - getting data from a serial device to ROS
