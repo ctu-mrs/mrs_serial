@@ -44,8 +44,9 @@ payload_size = 1 && message_id = '9'(0x39)   >> netgun fire (eagle)
 payload_size = 1 && message_id = (0x80)   >> Datapodavac reset
 payload_size = 1 && message_id = (0x81)   >> Datapodavac USB Hub reset
 payload_size = 1 && message_id = (0x82)   >> Datapodavac FTDI reset reset
-payload_size = 1 && message_id = (0x83)   >> Datapodavac Garmins reset reset
+payload_size = 1 && message_id = (0x83)   >> Datapodavac Garmins reset
 payload_size = 2 && message_id = (0x84)   >> Datapodavac USB Port reset
+payload_size = 3 && message_id = (0x85)   >> Datapodavac USB Port on/off
 payload_size = 1 && message_id = (0x88)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
 payload_size = 1 && message_id = (0x89)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
 
