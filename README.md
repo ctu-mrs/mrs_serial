@@ -23,7 +23,7 @@ value. If they match, the message is considered valid, if they do not match, the
 
 ## Reserved messages
 
-Messages with IDs from (0) 0x00 to 100 (0x64) are reserved for parts of the MRS system, avoid using them.
+Messages with IDs from 0x00 to 0x99 are reserved for parts of the MRS system, avoid using them.
 Messages used by MRS system so far:
 ```
 payload_size = 3 && message_id = 0   >> Garmin rangefinder
@@ -38,10 +38,11 @@ payload_size = 1 && message_id = '5'(0x35)   >> Beacon off (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
 payload_size = 1 && message_id = '8'(0x38)   >> netgun arm (eagle)
 payload_size = 1 && message_id = '9'(0x39)   >> netgun fire (eagle)
-payload_size = 1 && message_id = 85(0x55)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
-payload_size = 1 && message_id = 86(0x56)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
+payload_size = 1 && message_id = (0x85)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
+payload_size = 1 && message_id = (0x86)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
 
-IDs 90(0x5a) - 99(0x63) are reserved by UVDAR, but not set yet. It is possible that some of them will free up.
+IDs 0x80 - 0x89 are reserved by DATAPODAVAC, but most of them are not set yet. It is possible that some of them will free up.
+IDs 0x90 - 0x99 are reserved by UVDAR, but not set yet. It is possible that some of them will free up.
 ```
 
 ## How to use - getting data from a serial device to ROS
