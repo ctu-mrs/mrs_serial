@@ -29,17 +29,25 @@ Messages used by MRS system so far:
 payload_size = 3 && message_id = 0   >> Garmin rangefinder
 payload_size = 3 && message_id = 1   >> Garmin rangefinder (up)
 payload_size = 3 && message_id = 2   >> Garmin rangefinder (extra)
+
 payload_size = 1 && message_id = (0x40)   >> Gripper on with calibration
 payload_size = 1 && message_id = (0x41)   >> Gripper off
 payload_size = 1 && message_id = (0x42)   >> Gripper on, no calibration
 payload_size = 7 && message_id = (0x43)   >> GripperStatus
+
 payload_size = 1 && message_id = '4'(0x34)   >> Beacon on (eagle)
 payload_size = 1 && message_id = '5'(0x35)   >> Beacon off (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
 payload_size = 1 && message_id = '8'(0x38)   >> netgun arm (eagle)
 payload_size = 1 && message_id = '9'(0x39)   >> netgun fire (eagle)
-payload_size = 1 && message_id = (0x85)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
-payload_size = 1 && message_id = (0x86)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
+
+payload_size = 1 && message_id = (0x80)   >> Datapodavac reset
+payload_size = 1 && message_id = (0x81)   >> Datapodavac USB Hub reset
+payload_size = 1 && message_id = (0x82)   >> Datapodavac FTDI reset reset
+payload_size = 1 && message_id = (0x83)   >> Datapodavac Garmins reset reset
+payload_size = 2 && message_id = (0x84)   >> Datapodavac USB Port reset
+payload_size = 1 && message_id = (0x88)   >> Datapodavac heartbeat out (DATAPODAVAC -> NUC)
+payload_size = 1 && message_id = (0x89)   >> Datapodavac heartbeat in  (NUC -> DATAPODAVAC)
 
 IDs 0x80 - 0x89 are reserved by DATAPODAVAC, but most of them are not set yet. It is possible that some of them will free up.
 IDs 0x90 - 0x99 are reserved by UVDAR, but not set yet. It is possible that some of them will free up.
