@@ -1,0 +1,26 @@
+<launch>
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="profiler" default="$(optenv PROFILER false)" />
+
+  <group ns="$(arg uav_name)">
+
+    <!-- launch the node -->
+    <node name="serial" pkg="mrs_serial" type="mrs_serial_rtk" output="screen" respawn="true">
+
+      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+      <param name="portname" value="/dev/rtk"/>
+      <param name="use_timeout" value="true"/>
+        
+        <!-- Publishers -->
+
+      <!--ServicesIn-->
+
+      <!-- Subscribers -->
+      <remap from="~baca_protocol_in" to="~send_message" />
+
+    </node>
+
+  </group>
+
+</launch>

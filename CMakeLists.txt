@@ -34,6 +34,10 @@ include_directories(
 )
 
 # make the executables
-add_executable(baca_protocol src/baca_protocol.cpp src/serial_port.cpp)
-add_dependencies(baca_protocol ${catkin_EXPORTED_TARGETS})
-target_link_libraries(baca_protocol ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(mrs_serial src/mrs_serial.cpp src/serial_port.cpp)
+add_dependencies(mrs_serial ${catkin_EXPORTED_TARGETS})
+target_link_libraries(mrs_serial ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(mrs_serial_rtk src/mrs_serial_rtk.cpp src/serial_port.cpp)
+add_dependencies(mrs_serial_rtk ${catkin_EXPORTED_TARGETS})
+target_link_libraries(mrs_serial_rtk ${catkin_LIBRARIES} ${Boost_LIBRARIES})
