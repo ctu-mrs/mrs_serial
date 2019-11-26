@@ -22,9 +22,9 @@
 #define MIN_RANGE 10    // cm
 
 
-    /* class BacaProtocol //{ */
+/* class BacaProtocol //{ */
 
-    class BacaProtocol {
+class BacaProtocol {
 public:
   BacaProtocol();
 
@@ -76,6 +76,7 @@ public:
   uint16_t received_msg_bad_checksum = 0;
 
   std::string portname_;
+  std::string uav_name_;
 
   std::mutex mutex_msg;
 };
@@ -91,6 +92,7 @@ BacaProtocol::BacaProtocol() {
 
   ros::Time::waitForValid();
 
+  nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("use_timeout", use_timeout, true);
@@ -233,10 +235,10 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     }
 
     if (message_id == 0x00) {
-      range_msg.header.frame_id = "garmin_frame";
+      range_msg.header.frame_id = uav_name_ + std::string("/garmin");
       range_publisher_.publish(range_msg);
     } else if (message_id == 0x01) {
-      range_msg.header.frame_id = "garmin_frame_up";
+      range_msg.header.frame_id = uav_name_ + std::string("/garmin_up");
       range_publisher_up_.publish(range_msg);
     }
   } else {

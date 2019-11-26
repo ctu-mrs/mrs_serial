@@ -13,11 +13,12 @@
 
     <!-- launch the node -->
     <node name="serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+      <param name="uav_name" type="string" value="$(arg uav_name)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
-      <param name="portname" value="/dev/garmin"/>
+      <param name="portname" value="/dev/arduino"/>
       <param name="use_timeout" value="true"/>
         
         <!-- Publishers -->
