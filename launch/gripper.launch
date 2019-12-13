@@ -3,41 +3,34 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
-  <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
-  <arg unless="$(arg swap_garmins)" name="range_up" value="range_up"/>
-  <arg unless="$(arg swap_garmins)" name="range" value="range"/>
-  <arg     if="$(arg swap_garmins)" name="range_up" value="range"/>
-  <arg     if="$(arg swap_garmins)" name="range" value="range_up"/>
+  <!-- launch the node -->
+  <node name="serial_gripper" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
-  <group ns="$(arg uav_name)">
+    <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
-    <!-- launch the node -->
-    <node name="serial_gripper" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+    <param name="portname" value="/dev/gripper"/>
+    <param name="use_timeout" value="true"/>
+    <param name="swap_garmins" value="$(optenv SWAP_GARMINS false)"/>
 
-      <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
+    <!-- Publishers -->
+    <remap from="~range" to="/$(arg uav_name)/garmin/range" />
+    <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />
+    <remap from="~profiler" to="profiler" />
+    <remap from="~baca_protocol_out" to="~received_message" />
 
-      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
-      <param name="portname" value="/dev/gripper"/>
-      <param name="use_timeout" value="true"/>
-        
-      <!-- Publishers -->
-      <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
-      <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
-      <remap from="~profiler" to="profiler" />
-      <remap from="~baca_protocol_out" to="~received_message" />
+    <!--ServicesIn-->
+    <remap from="~netgun_fire" to="grip" />
+    <remap from="~netgun_arm" to="netgun_arm" />
+    <remap from="~netgun_safe" to="ungrip" />
+    <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
 
-      <!--ServicesIn-->
-      <remap from="~netgun_fire" to="grip" />
-      <remap from="~netgun_arm" to="netgun_arm" />
-      <remap from="~netgun_safe" to="ungrip" />
-      <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
+    <!-- Subscribers -->
+    <remap from="~magnet_in" to="ungrip" />
+    <remap from="~baca_protocol_in" to="~send_message" />
 
-      <!-- Subscribers -->
-      <remap from="~magnet_in" to="ungrip" />
-      <remap from="~baca_protocol_in" to="~send_message" />
+  </node>
 
-    </node>
-
-  </group>
+</group>
 
 </launch>

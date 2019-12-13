@@ -59,8 +59,8 @@ public:
 
   ros::NodeHandle nh_;
 
-  ros::Publisher range_publisher_;
-  ros::Publisher range_publisher_up_;
+  ros::Publisher range_publisher_A_;
+  ros::Publisher range_publisher_B_;
   ros::Publisher baca_protocol_publisher_;
 
   ros::Subscriber baca_protocol_subscriber;
@@ -71,12 +71,15 @@ public:
 
   bool     publish_bad_checksum;
   bool     use_timeout;
+  bool     swap_garmins;
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
 
   std::string portname_;
   std::string uav_name_;
+  std::string garmin_A_frame_;
+  std::string garmin_B_frame_;
 
   std::mutex mutex_msg;
 };
@@ -96,10 +99,16 @@ BacaProtocol::BacaProtocol() {
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("use_timeout", use_timeout, true);
+  nh_.param("swap_garmins", swap_garmins, false);
 
   // Publishers
-  range_publisher_         = nh_.advertise<sensor_msgs::Range>("range", 1);
-  range_publisher_up_      = nh_.advertise<sensor_msgs::Range>("range_up", 1);
+  std::string postfix_A = swap_garmins ? "_up" : "";
+  std::string postfix_B = swap_garmins ? "" : "_up";
+  range_publisher_A_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_A, 1);
+  range_publisher_B_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_B, 1);
+  garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
+  garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
+
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
@@ -235,11 +244,11 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     }
 
     if (message_id == 0x00) {
-      range_msg.header.frame_id = uav_name_ + std::string("/garmin");
-      range_publisher_.publish(range_msg);
+      range_msg.header.frame_id = garmin_A_frame_;
+      range_publisher_A_.publish(range_msg);
     } else if (message_id == 0x01) {
-      range_msg.header.frame_id = uav_name_ + std::string("/garmin_up");
-      range_publisher_up_.publish(range_msg);
+      range_msg.header.frame_id = garmin_B_frame_;
+      range_publisher_B_.publish(range_msg);
     }
   } else {
     /* General serial message */
