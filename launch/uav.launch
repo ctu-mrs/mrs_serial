@@ -1,39 +1,43 @@
 <launch>
 
-  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
+  <arg name="name" default="" />
+  <arg name="portname" default="/dev/arduino" />
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
+
   <arg unless="$(arg swap_garmins)" name="range_up" value="range_up"/>
   <arg unless="$(arg swap_garmins)" name="range" value="range"/>
   <arg     if="$(arg swap_garmins)" name="range_up" value="range"/>
   <arg     if="$(arg swap_garmins)" name="range" value="range_up"/>
 
-  <group ns="$(arg uav_name)">
+  <group ns="$(arg UAV_NAME)">
 
     <!-- launch the node -->
-    <node name="serial" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
-      <param name="uav_name" type="string" value="$(arg uav_name)"/>
+    <node name="serial$(arg name)" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+
+      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
-      <param name="portname" value="/dev/arduino"/>
+      <param name="portname" value="$(arg portname)"/>
       <param name="use_timeout" value="true"/>
-        
+
         <!-- Publishers -->
-      <remap from="~range" to="/$(arg uav_name)/garmin/$(arg range)" />
-      <remap from="~range_up" to="/$(arg uav_name)/garmin/$(arg  range_up)" />
+      <remap from="~range" to="/$(arg UAV_NAME)/garmin/$(arg range)" />
+      <remap from="~range_up" to="/$(arg UAV_NAME)/garmin/$(arg  range_up)" />
       <remap from="~profiler" to="profiler" />
       <remap from="~baca_protocol_out" to="~received_message" />
 
-      <!--ServicesIn-->
+        <!--ServicesIn-->
       <remap from="~netgun_fire" to="netgun_fire" />
       <remap from="~netgun_arm" to="netgun_arm" />
       <remap from="~netgun_safe" to="netgun_safe" />
       <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
 
-      <!-- Subscribers -->
+        <!-- Subscribers -->
       <remap from="~baca_protocol_in" to="~send_message" />
 
     </node>
