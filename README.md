@@ -128,7 +128,7 @@ Here is an Arduino example of a function that receives message with a payload_si
 ```c
 uint8_t read_single() {
   // Check if there are bytes in the buffer
-  if (Serial.available() > 2) {
+  if (Serial.available() > 3) {
     uint8_t checksum = 0;
     uint8_t tmp_in;
     uint8_t id;
