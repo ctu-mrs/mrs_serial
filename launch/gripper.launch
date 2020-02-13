@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <group ns="$(arg UAV_NAME)">
@@ -16,8 +16,8 @@
       <param name="swap_garmins" value="$(optenv SWAP_GARMINS false)"/>
 
         <!-- Publishers -->
-      <remap from="~range" to="/$(arg uav_name)/garmin/range" />
-      <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />
+      <remap from="~range" to="/$(arg UAV_NAME)/garmin/range" />
+      <remap from="~range_up" to="/$(arg UAV_NAME)/garmin/range_up" />
       <remap from="~profiler" to="profiler" />
       <remap from="~baca_protocol_out" to="~received_message" />
 
