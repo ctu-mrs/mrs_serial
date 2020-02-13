@@ -6,7 +6,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the node -->
-    <node name="serial_gripper" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <node name="serial_clawctrl" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
@@ -16,7 +16,8 @@
 
       <!-- Publishers -->
       <remap from="~baca_protocol_out" to="~received_message" />
-
+      
+      <remap from="~baca_protocol_in" to="~send_message" />
     </node>
 
   </group>
