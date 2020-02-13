@@ -114,9 +114,9 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
   // Output loaded parameters to console for double checking
-  ROS_INFO("[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
-  ROS_INFO("[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
-  ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
+  ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+  ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
   lastReceived = ros::Time::now();
   lastPrinted  = ros::Time::now();
 
@@ -151,7 +151,7 @@ void BacaProtocol::callbackSerialData(uint8_t single_character) {
     case EXPECTING_SIZE:
 
       if (single_character == 0) {
-        ROS_ERROR("[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str());
+        ROS_ERROR_THROTTLE(1.0, "[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str());
         rec_state = WAITING_FOR_MESSSAGE;
       } else {
         payload_size = single_character;
@@ -192,7 +192,8 @@ void BacaProtocol::callbackSerialData(uint8_t single_character) {
 /* callbackSendMessage() //{ */
 
 void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
-  ROS_INFO_STREAM("SENDING CHAR " << msg->payload[0]);
+
+  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING CHAR " << msg->payload[0]);
 
   std::scoped_lock lock(mutex_msg);
   uint8_t          payload_size = msg->payload.size();
@@ -290,13 +291,13 @@ uint8_t BacaProtocol::connectToSensor(void) {
   serial_port_->setSerialCallbackFunction(&serial_data_callback_function_);
 
   // Connect serial port
-  ROS_INFO("[%s]: Openning the serial port.", ros::this_node::getName().c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
   if (!serial_port_->connect(portname_)) {
-    ROS_ERROR("[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
+    ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     return 0;
   }
 
-  ROS_INFO("[%s]: Connected to sensor.", ros::this_node::getName().c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
 
   lastReceived = ros::Time::now();
 
@@ -322,7 +323,7 @@ int main(int argc, char **argv) {
     ros::Duration interval2 = ros::Time::now() - serial_line.lastPrinted;
 
     if (interval2.toSec() > 1.0) {
-      ROS_INFO_STREAM("Got msgs - Garmin: " << serial_line.received_msg_ok_garmin << " Generic msg: " << serial_line.received_msg_ok
+      ROS_INFO_STREAM_THROTTLE(1.0, "Got msgs - Garmin: " << serial_line.received_msg_ok_garmin << " Generic msg: " << serial_line.received_msg_ok
                                             << "  Wrong checksum: " << serial_line.received_msg_bad_checksum << "; in the last " << interval2.toSec() << " s");
       serial_line.received_msg_ok_garmin    = 0;
       serial_line.received_msg_ok           = 0;
@@ -334,12 +335,12 @@ int main(int argc, char **argv) {
 
       serial_line.releaseSerialLine();
 
-      ROS_WARN("[%s]: Serial device not responding, resetting connection...", ros::this_node::getName().c_str());
+      ROS_WARN_THROTTLE(1.0, "[%s]: Serial device not responding, resetting connection...", ros::this_node::getName().c_str());
 
       // if establishing the new connection was successfull
       if (serial_line.connectToSensor() == 1) {
 
-        ROS_INFO("[%s]: New connection to Serial device was established.", ros::this_node::getName().c_str());
+        ROS_INFO_THROTTLE(1.0, "[%s]: New connection to Serial device was established.", ros::this_node::getName().c_str());
       }
     }
     ros::spinOnce();

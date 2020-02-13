@@ -23,7 +23,7 @@ bool SerialPort::connect(const std::string port) {
   serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
   if (serial_port_fd_ == -1) {
-    ROS_ERROR("[%s] could not open serial port %s", ros::this_node::getName().c_str(), port.c_str());
+    ROS_ERROR_THROTTLE(1.0, "[%s] could not open serial port %s", ros::this_node::getName().c_str(), port.c_str());
     return false;
 
   } else {
@@ -67,7 +67,7 @@ void SerialPort::disconnect() {
   }
   catch (int e) {
 
-    ROS_WARN("Error while closing the sensor serial line!");
+    ROS_WARN_THROTTLE(1.0, "Error while closing the sensor serial line!");
   }
 }
 
@@ -78,7 +78,7 @@ bool SerialPort::sendChar(const char c) {
   }
   catch (int e) {
 
-    ROS_WARN("Error while writing from sensor serial line!");
+    ROS_WARN_THROTTLE(1.0, "Error while writing from sensor serial line!");
     return false;
   }
 }
@@ -99,7 +99,7 @@ void SerialPort::serialThread() {
       }
     }
     catch (int e) {
-      ROS_WARN("Error while reading from sensor serial line!");
+      ROS_WARN_THROTTLE(1.0, "Error while reading from sensor serial line!");
     }
     ros::Duration(0.0001).sleep();
   }
