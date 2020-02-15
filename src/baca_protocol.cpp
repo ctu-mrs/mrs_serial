@@ -10,6 +10,7 @@
 
 #include <string>
 #include <mrs_msgs/BacaProtocol.h>
+#include <mrs_msgs/SerialRaw.h>
 
 #include "serial_port.h"
 
@@ -47,6 +48,7 @@ public:
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
+  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
 
@@ -63,6 +65,7 @@ public:
   ros::Publisher range_publisher_B_;
   ros::Publisher baca_protocol_publisher_;
 
+  ros::Subscriber raw_message_subscriber;
   ros::Subscriber baca_protocol_subscriber;
   ros::Subscriber magnet_subscriber;
 
@@ -112,6 +115,8 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
+  
+  raw_message_subscriber = nh_.subscribe("raw_in", 1, &BacaProtocol::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -212,6 +217,21 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
     serial_port_->sendChar(tmp_send);
   }
   serial_port_->sendChar(checksum);
+}
+
+//}
+
+/* callbackSendMessage() //{ */
+
+void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+
+
+  for (unsigned int i = 0; i < msg->payload.size(); i++) {
+
+    ROS_INFO_STREAM("SENDING " << std::hex << msg->payload[i]);
+    serial_port_->sendChar(msg->payload[i]);
+
+  }
 }
 
 //}
@@ -324,7 +344,8 @@ int main(int argc, char **argv) {
 
     if (interval2.toSec() > 1.0) {
       ROS_INFO_STREAM_THROTTLE(1.0, "Got msgs - Garmin: " << serial_line.received_msg_ok_garmin << " Generic msg: " << serial_line.received_msg_ok
-                                            << "  Wrong checksum: " << serial_line.received_msg_bad_checksum << "; in the last " << interval2.toSec() << " s");
+                                                          << "  Wrong checksum: " << serial_line.received_msg_bad_checksum << "; in the last "
+                                                          << interval2.toSec() << " s");
       serial_line.received_msg_ok_garmin    = 0;
       serial_line.received_msg_ok           = 0;
       serial_line.received_msg_bad_checksum = 0;

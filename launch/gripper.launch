@@ -21,15 +21,10 @@
       <remap from="~profiler" to="profiler" />
       <remap from="~baca_protocol_out" to="~received_message" />
 
-        <!--ServicesIn-->
-      <remap from="~netgun_fire" to="grip" />
-      <remap from="~netgun_arm" to="netgun_arm" />
-      <remap from="~netgun_safe" to="ungrip" />
-      <remap from="~gimbal_pitch" to="gimbal/set_pitch" />
-
         <!-- Subscribers -->
       <remap from="~magnet_in" to="ungrip" />
       <remap from="~baca_protocol_in" to="~send_message" />
+      <remap from="~raw_in" to="~send_raw_message" />
 
     </node>
 
