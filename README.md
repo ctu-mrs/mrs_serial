@@ -35,6 +35,10 @@ payload_size = 1 && message_id = (0x41)   >> Gripper off
 payload_size = 1 && message_id = (0x42)   >> Gripper on, no calibration
 payload_size = 7 && message_id = (0x43)   >> GripperStatus
 
+payload_size = 1 && message_id = (0x50)   >> Parachute Arm
+payload_size = 1 && message_id = (0x51)   >> Parachute Disarm
+payload_size = 1 && message_id = (0x52)   >> Parachute Fire
+
 payload_size = 1 && message_id = '4'(0x34)   >> Beacon on (eagle)
 payload_size = 1 && message_id = '5'(0x35)   >> Beacon off (eagle)
 payload_size = 1 && message_id = '7'(0x37)   >> netgun safe (eagle)
