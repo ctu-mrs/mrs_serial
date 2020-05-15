@@ -4,6 +4,7 @@
 #include <mutex>
 
 #include <mrs_msgs/Gpgga.h>
+#include <mrs_msgs/Bestpos.h>
 #include <mrs_msgs/GpsStatus.h>
 
 #include <boost/algorithm/string.hpp>
@@ -42,6 +43,7 @@ public:
   ros::NodeHandle nh_;
 
   ros::Publisher gpgga_pub_;
+  ros::Publisher bestpos_pub_;
   ros::Publisher baca_protocol_publisher_;
 
   ros::Subscriber raw_message_subscriber;
@@ -80,7 +82,8 @@ NmeaParser::NmeaParser() {
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
 
-  gpgga_pub_ = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
+  gpgga_pub_   = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
+  bestpos_pub_ = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
 
   // Publishers
   /* std::string postfix_A = swap_garmins ? "_up" : ""; */
@@ -170,35 +173,36 @@ void NmeaParser::processMessage() {
 
 void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
-  mrs_msgs::Gpgga     msg;
+  mrs_msgs::Gpgga     gpgga_msg;
+  mrs_msgs::Bestpos   bestpos_msg;
   mrs_msgs::GpsStatus gps_status;
 
   try {
 
-    msg.utc_seconds      = stod(results[1]);
-    msg.latitude         = stod(results[2]);
-    msg.latitude_dir     = results[3];
-    msg.longitude        = stod(results[4]);
-    msg.longitude_dir    = results[5];
-    gps_status.quality   = stoi(results[6]);
-    msg.gps_quality      = gps_status;
-    msg.num_sats         = stoi(results[7]);
-    msg.hdop             = stod(results[8]);
-    msg.altitude         = stod(results[9]);
-    msg.altitude_units   = results[10];
-    msg.undulation       = stod(results[11]);
-    msg.undulation_units = results[12];
+    gpgga_msg.utc_seconds      = stod(results[1]);
+    gpgga_msg.latitude         = stod(results[2]);
+    gpgga_msg.latitude_dir     = results[3];
+    gpgga_msg.longitude        = stod(results[4]);
+    gpgga_msg.longitude_dir    = results[5];
+    gps_status.quality         = stoi(results[6]);
+    gpgga_msg.gps_quality      = gps_status;
+    gpgga_msg.num_sats         = stoi(results[7]);
+    gpgga_msg.hdop             = stod(results[8]);
+    gpgga_msg.altitude         = stod(results[9]);
+    gpgga_msg.altitude_units   = results[10];
+    gpgga_msg.undulation       = stod(results[11]);
+    gpgga_msg.undulation_units = results[12];
 
     if (results[13] == "") {
-      msg.diff_age = 0;
+      gpgga_msg.diff_age = 0;
     } else {
-      msg.diff_age = stoi(results[13]);
+      gpgga_msg.diff_age = stoi(results[13]);
     }
 
     std::vector<std::string> results2;
     boost::split(results2, results[14], [](char c) { return c == '*'; });  // split the input string into words and put them in results vector
 
-    msg.station_id = results2[0];
+    gpgga_msg.station_id = results2[0];
   }
 
   catch (const std::invalid_argument& e) {
@@ -206,7 +210,33 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
     ROS_ERROR("Invalid argument exception in processGPGGA");
   }
 
-  gpgga_pub_.publish(msg);
+  bestpos_msg.latitude               = gpgga_msg.latitude;
+  bestpos_msg.longitude              = gpgga_msg.longitude;
+  bestpos_msg.height                 = gpgga_msg.altitude;
+  bestpos_msg.undulation             = gpgga_msg.undulation;
+  bestpos_msg.diff_age               = gpgga_msg.diff_age;
+  bestpos_msg.num_satellites_tracked = gpgga_msg.num_sats;
+
+  switch (gpgga_msg.gps_quality.quality) {
+    case 1:
+      bestpos_msg.position_type = "SINGLE";
+      break;
+    case 2:
+      bestpos_msg.position_type = "PSRDIFF";
+      break;
+    case 4:
+      bestpos_msg.position_type = "L1_INT";
+      break;
+    case 5:
+      bestpos_msg.position_type = "L1_FLOAT";
+      break;
+    default:
+      bestpos_msg.position_type = "NONE";
+      break;
+  }
+
+  gpgga_pub_.publish(gpgga_msg);
+  bestpos_pub_.publish(bestpos_msg);
 }
 
 //}
