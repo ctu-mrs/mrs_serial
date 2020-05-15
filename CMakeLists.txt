@@ -37,3 +37,8 @@ include_directories(
 add_executable(baca_protocol src/baca_protocol.cpp src/serial_port.cpp)
 add_dependencies(baca_protocol ${catkin_EXPORTED_TARGETS})
 target_link_libraries(baca_protocol ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+# make the executables
+add_executable(nmea_parser src/nmea_parser.cpp src/serial_port.cpp)
+add_dependencies(nmea_parser ${catkin_EXPORTED_TARGETS})
+target_link_libraries(nmea_parser ${catkin_LIBRARIES} ${Boost_LIBRARIES})
