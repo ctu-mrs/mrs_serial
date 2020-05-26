@@ -158,7 +158,7 @@ void NmeaParser::processMessage() {
 
   boost::split(results, msg_, [](char c) { return c == ','; });  // split the input string into words and put them in results vector
 
-  if (results[0] == "GPGGA") {
+  if (results[0] == "GPGGA" || results[0] == "GNGGA") {
     processGPGGA(results);
   }
 
