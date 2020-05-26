@@ -19,14 +19,8 @@
       <param name="use_timeout" value="true"/>
 
       <!-- Publishers -->
-      <remap from="~range" to="/$(arg UAV_NAME)/garmin/range" />
-      <remap from="~range_up" to="/$(arg UAV_NAME)/garmin/range_up" />
-      <remap from="~profiler" to="profiler" />
-      <remap from="~baca_protocol_out" to="~received_message" />
-
-        <!-- Subscribers -->
-      <remap from="~baca_protocol_in" to="~send_message" />
-      <remap from="~raw_in" to="~send_raw_message" />
+      <remap from="~gpgga_out" to="~gpgga" />
+      <remap from="~bestpos_out" to="~bestpos" />
 
     </node>
 
