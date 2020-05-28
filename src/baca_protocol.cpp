@@ -115,7 +115,7 @@ BacaProtocol::BacaProtocol() {
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
-  
+
   raw_message_subscriber = nh_.subscribe("raw_in", 1, &BacaProtocol::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
   // Output loaded parameters to console for double checking
@@ -198,38 +198,43 @@ void BacaProtocol::callbackSerialData(uint8_t single_character) {
 
 void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
 
-  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING CHAR " << msg->payload[0]);
+  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << msg->payload[0]);
 
   std::scoped_lock lock(mutex_msg);
   uint8_t          payload_size = msg->payload.size();
-  uint8_t          tmp_send     = 'b';
   uint8_t          checksum     = 0;
+  uint16_t         it           = 0;
 
-  serial_port_->sendChar(tmp_send);
-  checksum += tmp_send;
+  uint8_t out_buffer[payload_size + 3];
 
-  serial_port_->sendChar(payload_size);
+  out_buffer[it++] = 'b';
+  checksum += 'b';
+  out_buffer[it++] = payload_size;
   checksum += payload_size;
 
   for (int i = 0; i < payload_size; i++) {
-    tmp_send = msg->payload[i];
-    checksum += tmp_send;
-    serial_port_->sendChar(tmp_send);
+    out_buffer[it++] = msg->payload[i];
+    checksum += msg->payload[i];
   }
-  serial_port_->sendChar(checksum);
+
+  out_buffer[it] = checksum;
+
+  serial_port_->sendCharArray(out_buffer, payload_size + 3);
 }
 
 //}
 
-/* callbackSendMessage() //{ */
+/* callbackSendRawMessage() //{ */
 
 void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
 
+  uint8_t payload_size = msg->payload.size();
+  uint8_t out_buffer[payload_size];
 
-  for (unsigned int i = 0; i < msg->payload.size(); i++) {
+  for (unsigned int i = 0; i < payload_size; i++) {
 
     ROS_INFO_STREAM("SENDING " << std::hex << msg->payload[i]);
-    serial_port_->sendChar(msg->payload[i]);
+    serial_port_->sendCharArray(out_buffer, payload_size);
 
   }
 }

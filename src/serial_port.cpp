@@ -78,7 +78,22 @@ bool SerialPort::sendChar(const char c) {
   }
   catch (int e) {
 
-    ROS_WARN_THROTTLE(1.0, "Error while writing from sensor serial line!");
+    ROS_WARN_THROTTLE(1.0, "Error while writing to serial line!");
+    return false;
+  }
+}
+
+bool SerialPort::sendCharArray(uint8_t* buffer, int len) {
+  try {
+
+    bool ret_val = write(serial_port_fd_, buffer, len);
+    tcflush(serial_port_fd_, TCOFLUSH);
+    return ret_val;
+
+  }
+  catch (int e) {
+
+    ROS_WARN_THROTTLE(1.0, "Error while writing to serial line!");
     return false;
   }
 }

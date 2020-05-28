@@ -28,6 +28,7 @@ public:
   void disconnect();
 
   bool sendChar(const char c);
+  bool sendCharArray(uint8_t* buffer, int len);
 
   void setSerialCallbackFunction(boost::function<void(uint8_t)> *f);
   void serialThread();
