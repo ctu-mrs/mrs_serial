@@ -7,11 +7,22 @@
 #include <mrs_msgs/Bestpos.h>
 #include <mrs_msgs/GpsStatus.h>
 
+#include <std_msgs/String.h>
+
 #include <boost/algorithm/string.hpp>
 
 #include "serial_port.h"
 
 #define MAXIMAL_TIME_INTERVAL 5
+
+typedef enum
+{
+  SINGLE,
+  PSRDIFF,
+  L1_INT,
+  L1_FLOAT,
+  NONE
+} rtk_state;
 
 /* class NmeaParser //{ */
 
@@ -34,6 +45,7 @@ public:
   uint8_t connectToSensor(void);
   void    releaseSerialLine(void);
   void    processMessage();
+  void    stringTimer(const ros::TimerEvent& event);
 
   void processGPGGA(std::vector<std::string>& results);
 
@@ -45,13 +57,18 @@ public:
   ros::Publisher gpgga_pub_;
   ros::Publisher bestpos_pub_;
   ros::Publisher baca_protocol_publisher_;
+  ros::Publisher status_string_publisher_;
 
   ros::Subscriber raw_message_subscriber;
   ros::Subscriber baca_protocol_subscriber;
   ros::Subscriber magnet_subscriber;
 
+  ros::Timer string_timer_;
+
   serial_device::SerialPort*     serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
+
+  rtk_state rtk_state_ = NONE;
 
   bool     publish_bad_checksum;
   bool     use_timeout;
@@ -82,8 +99,11 @@ NmeaParser::NmeaParser() {
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
 
-  gpgga_pub_   = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
-  bestpos_pub_ = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
+  gpgga_pub_               = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
+  bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
+  status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
+
+  string_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
 
   // Publishers
   /* std::string postfix_A = swap_garmins ? "_up" : ""; */
@@ -149,6 +169,39 @@ void NmeaParser::callbackSerialData(uint8_t single_character) {
 //}
 
 // | ------------------------ routines ------------------------ |
+
+/* stringTimer() //{ */
+
+void NmeaParser::stringTimer([[maybe_unused]] const ros::TimerEvent& event) {
+  std_msgs::String msg;
+
+  switch (rtk_state_) {
+    case SINGLE:
+      msg.data = "RTK: SINGLE";
+      break;
+    case PSRDIFF:
+      msg.data = "RTK: PSRDIFF";
+      break;
+    case L1_INT:
+      msg.data = "RTK: L1_INT";
+      break;
+    case L1_FLOAT:
+      msg.data = "RTK: L1_FLOAT";
+      break;
+    default:
+      msg.data = "RTK: NONE";
+      break;
+  }
+
+  try {
+    status_string_publisher_.publish(msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea Parser]: exception caught during publishing topic ");
+  }
+}
+
+//}
 
 /* processMessage() //{ */
 
@@ -220,23 +273,32 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   switch (gpgga_msg.gps_quality.quality) {
     case 1:
       bestpos_msg.position_type = "SINGLE";
+      rtk_state_                = SINGLE;
       break;
     case 2:
       bestpos_msg.position_type = "PSRDIFF";
+      rtk_state_                = PSRDIFF;
       break;
     case 4:
       bestpos_msg.position_type = "L1_INT";
+      rtk_state_                = L1_INT;
       break;
     case 5:
       bestpos_msg.position_type = "L1_FLOAT";
+      rtk_state_                = L1_FLOAT;
       break;
     default:
       bestpos_msg.position_type = "NONE";
+      rtk_state_                = NONE;
       break;
   }
-
-  gpgga_pub_.publish(gpgga_msg);
-  bestpos_pub_.publish(bestpos_msg);
+  try {
+    gpgga_pub_.publish(gpgga_msg);
+    bestpos_pub_.publish(bestpos_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea parser]: exception caught during publishing");
+  }
 }
 
 //}
