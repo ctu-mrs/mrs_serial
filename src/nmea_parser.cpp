@@ -177,19 +177,19 @@ void NmeaParser::stringTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   switch (rtk_state_) {
     case SINGLE:
-      msg.data = "RTK: SINGLE";
+      msg.data = "-y RTK: SINGLE";
       break;
     case PSRDIFF:
-      msg.data = "RTK: PSRDIFF";
+      msg.data = "-y RTK: PSRDIFF";
       break;
     case L1_INT:
-      msg.data = "RTK: L1_INT";
+      msg.data = "-g RTK: L1_INT";
       break;
     case L1_FLOAT:
-      msg.data = "RTK: L1_FLOAT";
+      msg.data = "-y RTK: L1_FLOAT";
       break;
     default:
-      msg.data = "RTK: NONE";
+      msg.data = "-r RTK: NONE";
       break;
   }
 
