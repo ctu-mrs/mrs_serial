@@ -233,9 +233,11 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   try {
 
     gpgga_msg.utc_seconds      = stod(results[1]);
-    gpgga_msg.latitude         = stod(results[2])/100;
+    std::string lat            = results[2];
+    gpgga_msg.latitude         = stod(lat.substr(0, 2)) + stod(lat.substr(2, 10)) / 60;
     gpgga_msg.latitude_dir     = results[3];
-    gpgga_msg.longitude        = stod(results[4])/100;
+    std::string lon            = results[4];
+    gpgga_msg.longitude        = stod(lon.substr(0, 3)) + stod(lon.substr(3, 10)) / 60;
     gpgga_msg.longitude_dir    = results[5];
     gps_status.quality         = stoi(results[6]);
     gpgga_msg.gps_quality      = gps_status;
