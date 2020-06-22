@@ -2,17 +2,25 @@
 
 #include "serial_port.h"
 
-namespace serial_device
+namespace serial_port
 {
 
-SerialPort::SerialPort() : serial_callback_function() {
-  serial_thread_should_exit_ = false;
-  serial_port_fd_            = 0;
+/* SerialPort() //{ */
+
+SerialPort::SerialPort() {
 }
+
+//}
+
+/* ~SerialPort() //{ */
 
 SerialPort::~SerialPort() {
   disconnect();
 }
+
+//}
+
+/* connect() //{ */
 
 bool SerialPort::connect(const std::string port) {
 
@@ -50,15 +58,20 @@ bool SerialPort::connect(const std::string port) {
   newtio.c_cflag &= ~CRTSCTS;
   // | ----------------------------  ---------------------------- |
 
+  newtio.c_cc[VTIME] = 0;  // Wait for up to VTIME*0.1s (1 decisecond), returning as soon as any data is received.
+  newtio.c_cc[VMIN]  = 0;
+
   tcflush(serial_port_fd_, TCIFLUSH);
   tcsetattr(serial_port_fd_, TCSANOW, &newtio);
 
-  serial_thread_ = boost::thread(&SerialPort::serialThread, this);
   return true;
 }
 
+//}
+
+/* disconnect() //{ */
+
 void SerialPort::disconnect() {
-  serial_thread_should_exit_ = true;
 
   // TODO(lfr) wait for thread to finish
   try {
@@ -70,6 +83,10 @@ void SerialPort::disconnect() {
     ROS_WARN_THROTTLE(1.0, "Error while closing the sensor serial line!");
   }
 }
+
+//}
+
+/* sendChar() //{ */
 
 bool SerialPort::sendChar(const char c) {
   try {
@@ -83,13 +100,16 @@ bool SerialPort::sendChar(const char c) {
   }
 }
 
+//}
+
+/* sendCharArray() //{ */
+
 bool SerialPort::sendCharArray(uint8_t* buffer, int len) {
   try {
 
     bool ret_val = write(serial_port_fd_, buffer, len);
     tcflush(serial_port_fd_, TCOFLUSH);
     return ret_val;
-
   }
   catch (int e) {
 
@@ -98,27 +118,13 @@ bool SerialPort::sendCharArray(uint8_t* buffer, int len) {
   }
 }
 
-void SerialPort::setSerialCallbackFunction(boost::function<void(uint8_t)>* f) {
-  serial_callback_function = f;
+//}
+
+/* read() //{ */
+int SerialPort::readSerial(uint8_t* arr, int arr_max_size) {
+  return read(serial_port_fd_, arr, arr_max_size);
 }
 
-void SerialPort::serialThread() {
-  uint8_t single_character;
-  // Non read
-  while (!serial_thread_should_exit_ && ros::ok()) {
-    try {
+//}
 
-      while (read(serial_port_fd_, &single_character, 1)) {
-
-        (*serial_callback_function)(single_character);
-      }
-    }
-    catch (int e) {
-      ROS_WARN_THROTTLE(1.0, "Error while reading from sensor serial line!");
-    }
-    ros::Duration(0.0001).sleep();
-  }
-  return;
-}
-
-}  // namespace serial_device
+}  // namespace serial_port

@@ -29,8 +29,6 @@ class BacaProtocol {
 public:
   BacaProtocol();
 
-  void callbackSerialData(uint8_t data);
-
   enum serial_receiver_state
   {
     WAITING_FOR_MESSSAGE,
@@ -40,9 +38,14 @@ public:
   };
 
 
+  ros::Timer serial_timer_;
+
   ros::ServiceServer netgun_arm;
   ros::ServiceServer netgun_safe;
   ros::ServiceServer netgun_fire;
+
+  void interpretSerialData(uint8_t data);
+  void callbackSerialRead(const ros::TimerEvent &event);
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -69,7 +72,7 @@ public:
   ros::Subscriber baca_protocol_subscriber;
   ros::Subscriber magnet_subscriber;
 
-  serial_device::SerialPort *    serial_port_;
+  serial_port::SerialPort *      serial_port_;
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
@@ -78,6 +81,9 @@ public:
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
+
+  int serial_rate_        = 500;
+  int serial_buffer_size_ = 1024;
 
   std::string portname_;
   std::string uav_name_;
@@ -103,16 +109,18 @@ BacaProtocol::BacaProtocol() {
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("use_timeout", use_timeout, true);
   nh_.param("swap_garmins", swap_garmins, false);
+  nh_.param("serial_rate", serial_rate_, 500);
+  nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
   std::string postfix_A = swap_garmins ? "_up" : "";
   std::string postfix_B = swap_garmins ? "" : "_up";
-  range_publisher_A_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_A, 1);
-  range_publisher_B_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_B, 1);
+  range_publisher_A_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_A, 10);
+  range_publisher_B_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_B, 10);
   garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
   garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
 
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 10);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -126,15 +134,34 @@ BacaProtocol::BacaProtocol() {
   lastPrinted  = ros::Time::now();
 
   connectToSensor();
+
+  serial_timer_ = nh_.createTimer(ros::Rate(serial_rate_), &BacaProtocol::callbackSerialRead, this);
 }
 
 //}
 
 // | ------------------------ callbacks ------------------------ |
 
-/* callbackSerialData() //{ */
+/* callbackSerialRead() //{ */
 
-void BacaProtocol::callbackSerialData(uint8_t single_character) {
+void BacaProtocol::callbackSerialRead(const ros::TimerEvent &event) {
+
+  uint8_t read_buffer[serial_buffer_size_];
+  int     bytes_read;
+
+  bytes_read = serial_port_->readSerial(read_buffer, serial_buffer_size_);
+
+  for (int i = 0; i < bytes_read; i++) {
+    interpretSerialData(read_buffer[i]);
+  }
+  /* processMessage */
+}
+
+//}
+
+/* interpretSerialData() //{ */
+
+void BacaProtocol::interpretSerialData(uint8_t single_character) {
 
   static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE;
   static uint8_t               payload_size = 0;
@@ -235,7 +262,6 @@ void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg
 
     ROS_INFO_STREAM("SENDING " << std::hex << msg->payload[i]);
     serial_port_->sendCharArray(out_buffer, payload_size);
-
   }
 }
 
@@ -271,10 +297,23 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
 
     if (message_id == 0x00) {
       range_msg.header.frame_id = garmin_A_frame_;
-      range_publisher_A_.publish(range_msg);
+
+      try {
+        range_publisher_A_.publish(range_msg);
+      }
+      catch (...) {
+        ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_A_.getTopic().c_str());
+      }
+
     } else if (message_id == 0x01) {
       range_msg.header.frame_id = garmin_B_frame_;
-      range_publisher_B_.publish(range_msg);
+
+      try {
+        range_publisher_B_.publish(range_msg);
+      }
+      catch (...) {
+        ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_B_.getTopic().c_str());
+      }
     }
   } else {
     /* General serial message */
@@ -289,7 +328,12 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     msg.checksum_received   = checksum_rec;
     msg.checksum_calculated = checksum;
     msg.checksum_correct    = checksum_correct;
-    baca_protocol_publisher_.publish(msg);
+    try {
+      baca_protocol_publisher_.publish(msg);
+    }
+    catch (...) {
+      ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", baca_protocol_publisher_.getTopic().c_str());
+    }
   }
 }
 
@@ -309,11 +353,7 @@ void BacaProtocol::releaseSerialLine(void) {
 uint8_t BacaProtocol::connectToSensor(void) {
 
   // Create serial port
-  serial_port_ = new serial_device::SerialPort();
-
-  // Set callback function for the serial ports
-  serial_data_callback_function_ = boost::bind(&BacaProtocol::callbackSerialData, this, _1);
-  serial_port_->setSerialCallbackFunction(&serial_data_callback_function_);
+  serial_port_ = new serial_port::SerialPort();
 
   // Connect serial port
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());

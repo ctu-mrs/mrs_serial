@@ -16,7 +16,7 @@
 
 #include <string>
 
-namespace serial_device
+namespace serial_port
 {
 
 class SerialPort {
@@ -30,16 +30,13 @@ public:
   bool sendChar(const char c);
   bool sendCharArray(uint8_t* buffer, int len);
 
-  void setSerialCallbackFunction(boost::function<void(uint8_t)> *f);
-  void serialThread();
+  int readSerial(uint8_t* arr, int arr_max_size);
 
-  int           serial_port_fd_;
-  boost::thread serial_thread_;
-  bool          serial_thread_should_exit_;
-
-  boost::function<void(uint8_t)> *serial_callback_function;
+  int      serial_port_fd_;
+  uint8_t  input_buffer[1024];
+  uint16_t input_it = 0;
 };
 
-}  // namespace serial_device
+}  // namespace serial_port
 
 #endif  // SERIAL_PORT_H_

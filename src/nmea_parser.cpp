@@ -30,7 +30,8 @@ class NmeaParser {
 public:
   NmeaParser();
 
-  void callbackSerialData(uint8_t data);
+  void interpretSerialData(uint8_t data);
+  void callbackSerialRead(const ros::TimerEvent& event);
 
   enum serial_receiver_state
   {
@@ -65,8 +66,7 @@ public:
 
   ros::Timer string_timer_;
 
-  serial_device::SerialPort*     serial_port_;
-  boost::function<void(uint8_t)> serial_data_callback_function_;
+  serial_port::SerialPort* serial_port_;
 
   rtk_state rtk_state_ = NONE;
 
@@ -76,6 +76,9 @@ public:
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
+
+  int serial_rate_        = 500;
+  int serial_buffer_size_ = 1024;
 
   std::string portname_;
   std::string uav_name_;
@@ -98,25 +101,14 @@ NmeaParser::NmeaParser() {
 
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("serial_rate", serial_rate_, 500);
+  nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   gpgga_pub_               = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
   bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
   status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
 
   string_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
-
-  // Publishers
-  /* std::string postfix_A = swap_garmins ? "_up" : ""; */
-  /* std::string postfix_B = swap_garmins ? "" : "_up"; */
-  /* range_publisher_A_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_A, 1); */
-  /* range_publisher_B_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_B, 1); */
-  /* garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A; */
-  /* garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B; */
-
-
-  /* baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &NmeaParser::callbackSendMessage, this, ros::TransportHints().tcpNoDelay()); */
-
-  /* raw_message_subscriber = nh_.subscribe("raw_in", 1, &NmeaParser::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay()); */
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -133,9 +125,26 @@ NmeaParser::NmeaParser() {
 
 // | ------------------------ callbacks ------------------------ |
 
-/* callbackSerialData() //{ */
+/* callbackSerialRead() //{ */
 
-void NmeaParser::callbackSerialData(uint8_t single_character) {
+void NmeaParser::callbackSerialRead(const ros::TimerEvent& event) {
+
+  uint8_t read_buffer[serial_buffer_size_];
+  int     bytes_read;
+
+  bytes_read = serial_port_->readSerial(read_buffer, serial_buffer_size_);
+
+  for (int i = 0; i < bytes_read; i++) {
+    interpretSerialData(read_buffer[i]);
+  }
+  /* processMessage */
+}
+
+//}
+
+/* interpretSerialData() //{ */
+
+void NmeaParser::interpretSerialData(uint8_t single_character) {
 
   ROS_INFO_STREAM_THROTTLE(1.0, "State:  " << state_);
 
@@ -319,11 +328,7 @@ void NmeaParser::releaseSerialLine(void) {
 uint8_t NmeaParser::connectToSensor(void) {
 
   // Create serial port
-  serial_port_ = new serial_device::SerialPort();
-
-  // Set callback function for the serial ports
-  serial_data_callback_function_ = boost::bind(&NmeaParser::callbackSerialData, this, _1);
-  serial_port_->setSerialCallbackFunction(&serial_data_callback_function_);
+  serial_port_ = new serial_port::SerialPort();
 
   // Connect serial port
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
