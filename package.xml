@@ -15,11 +15,16 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <depend>roscpp</depend>
+  <depend>nodelet</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>mrs_msgs</depend>
 
   <export>
+
+    <!-- The plugins.xml file defines nodelet as a plugin -->
+    <nodelet plugin="${prefix}/plugins.xml" />
+
   </export>
 
 </package>

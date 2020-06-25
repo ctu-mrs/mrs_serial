@@ -1,0 +1,6 @@
+
+<library path="lib/libBacaProtocol">
+  <class name="baca_protocol/BacaProtocol" type="baca_protocol::BacaProtocol" base_class_type="nodelet::Nodelet">
+    <description>WaypointFlier nodelet</description>
+  </class>
+</library>

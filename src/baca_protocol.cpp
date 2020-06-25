@@ -12,7 +12,10 @@
 #include <mrs_msgs/BacaProtocol.h>
 #include <mrs_msgs/SerialRaw.h>
 
-#include "serial_port.h"
+#include <serial_port.h>
+
+#include <nodelet/nodelet.h>
+#include <pluginlib/class_list_macros.h>
 
 #define BUFFER_SIZE 256
 
@@ -22,13 +25,17 @@
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
 
+namespace baca_protocol
+{
 
 /* class BacaProtocol //{ */
 
-class BacaProtocol {
-public:
-  BacaProtocol();
+class BacaProtocol : public nodelet::Nodelet {
 
+public:
+  virtual void onInit();
+
+private:
   enum serial_receiver_state
   {
     WAITING_FOR_MESSSAGE,
@@ -39,13 +46,16 @@ public:
 
 
   ros::Timer serial_timer_;
+  ros::Timer maintainer_timer_;
 
   ros::ServiceServer netgun_arm;
   ros::ServiceServer netgun_safe;
   ros::ServiceServer netgun_fire;
 
+
   void interpretSerialData(uint8_t data);
-  void callbackSerialRead(const ros::TimerEvent &event);
+  void callbackSerialTimer(const ros::TimerEvent &event);
+  void callbackMaintainerTimer(const ros::TimerEvent &event);
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -56,11 +66,8 @@ public:
 
 
   uint8_t connectToSensor(void);
-  void    releaseSerialLine(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
 
-  ros::Time lastReceived;
-  ros::Time lastPrinted;
 
   ros::NodeHandle nh_;
 
@@ -72,7 +79,8 @@ public:
   ros::Subscriber baca_protocol_subscriber;
   ros::Subscriber magnet_subscriber;
 
-  serial_port::SerialPort *      serial_port_;
+  serial_port::SerialPort serial_port_;
+
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
@@ -91,13 +99,19 @@ public:
   std::string garmin_B_frame_;
 
   std::mutex mutex_msg;
+
+  ros::Time interval_      = ros::Time::now();
+  ros::Time last_received_ = ros::Time::now();
+
+  bool is_connected_   = false;
+  bool is_initialized_ = false;
 };
 
 //}
 
-/* BacaProtocol() //{ */
+/* onInit() //{ */
 
-BacaProtocol::BacaProtocol() {
+void BacaProtocol::onInit() {
 
   // Get paramters
   nh_ = ros::NodeHandle("~");
@@ -130,26 +144,29 @@ BacaProtocol::BacaProtocol() {
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
   ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
-  lastReceived = ros::Time::now();
-  lastPrinted  = ros::Time::now();
 
   connectToSensor();
 
-  serial_timer_ = nh_.createTimer(ros::Rate(serial_rate_), &BacaProtocol::callbackSerialRead, this);
+  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &BacaProtocol::callbackSerialTimer, this);
+  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &BacaProtocol::callbackMaintainerTimer, this);
+
+  is_initialized_ = true;
 }
+//}
+
 
 //}
 
 // | ------------------------ callbacks ------------------------ |
 
-/* callbackSerialRead() //{ */
+/* callbackSerialTimer() //{ */
 
-void BacaProtocol::callbackSerialRead(const ros::TimerEvent &event) {
+void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
 
   uint8_t read_buffer[serial_buffer_size_];
   int     bytes_read;
 
-  bytes_read = serial_port_->readSerial(read_buffer, serial_buffer_size_);
+  bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
 
   for (int i = 0; i < bytes_read; i++) {
     interpretSerialData(read_buffer[i]);
@@ -158,6 +175,100 @@ void BacaProtocol::callbackSerialRead(const ros::TimerEvent &event) {
 }
 
 //}
+
+/* callbackMaintainerTimer() //{ */
+
+void BacaProtocol::callbackMaintainerTimer(const ros::TimerEvent &event) {
+
+  if (is_connected_) {
+
+    if (!serial_port_.checkConnected()) {
+      is_connected_ = false;
+      ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "] Serial device is disconnected! ");
+    }
+  }
+
+  if (((ros::Time::now() - last_received_).toSec() > MAXIMAL_TIME_INTERVAL) && use_timeout && is_connected_) {
+
+    is_connected_ = false;
+
+    ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "] Serial port timed out - no messages were received in " << MAXIMAL_TIME_INTERVAL
+                         << " seconds");
+  }
+
+  if (is_connected_) {
+
+    ROS_INFO_STREAM("Got msgs - Garmin: " << received_msg_ok_garmin << " Generic msg: " << received_msg_ok << "  Wrong checksum: " << received_msg_bad_checksum
+                                          << "; in the last " << (ros::Time::now() - interval_).toSec() << " s");
+    received_msg_ok_garmin    = 0;
+    received_msg_ok           = 0;
+    received_msg_bad_checksum = 0;
+
+    interval_ = ros::Time::now();
+
+  } else {
+
+    connectToSensor();
+  }
+}
+
+//}
+
+/* callbackSendMessage() //{ */
+
+void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
+
+  if (!is_initialized_) {
+    return;
+  }
+
+  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << msg->payload[0]);
+
+  std::scoped_lock lock(mutex_msg);
+  uint8_t          payload_size = msg->payload.size();
+  uint8_t          checksum     = 0;
+  uint16_t         it           = 0;
+
+  uint8_t out_buffer[payload_size + 3];
+
+  out_buffer[it++] = 'b';
+  checksum += 'b';
+  out_buffer[it++] = payload_size;
+  checksum += payload_size;
+
+  for (int i = 0; i < payload_size; i++) {
+    out_buffer[it++] = msg->payload[i];
+    checksum += msg->payload[i];
+  }
+
+  out_buffer[it] = checksum;
+
+  serial_port_.sendCharArray(out_buffer, payload_size + 3);
+}
+
+//}
+
+/* callbackSendRawMessage() //{ */
+
+void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+
+  if (!is_initialized_) {
+    return;
+  }
+
+  uint8_t payload_size = msg->payload.size();
+  uint8_t out_buffer[payload_size];
+
+  for (unsigned int i = 0; i < payload_size; i++) {
+
+    ROS_INFO_STREAM("SENDING " << std::hex << msg->payload[i]);
+    serial_port_.sendCharArray(out_buffer, payload_size);
+  }
+}
+
+//}
+
+// | ------------------------ routines ------------------------ |
 
 /* interpretSerialData() //{ */
 
@@ -206,8 +317,8 @@ void BacaProtocol::interpretSerialData(uint8_t single_character) {
 
       if (checksum == single_character) {
         processMessage(payload_size, input_buffer, checksum, single_character, true);
-        lastReceived = ros::Time::now();
-        rec_state    = WAITING_FOR_MESSSAGE;
+        last_received_ = ros::Time::now();
+        rec_state      = WAITING_FOR_MESSSAGE;
       } else {
         if (publish_bad_checksum) {
           processMessage(payload_size, input_buffer, checksum, single_character, false);
@@ -220,54 +331,6 @@ void BacaProtocol::interpretSerialData(uint8_t single_character) {
 }
 
 //}
-
-/* callbackSendMessage() //{ */
-
-void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
-
-  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << msg->payload[0]);
-
-  std::scoped_lock lock(mutex_msg);
-  uint8_t          payload_size = msg->payload.size();
-  uint8_t          checksum     = 0;
-  uint16_t         it           = 0;
-
-  uint8_t out_buffer[payload_size + 3];
-
-  out_buffer[it++] = 'b';
-  checksum += 'b';
-  out_buffer[it++] = payload_size;
-  checksum += payload_size;
-
-  for (int i = 0; i < payload_size; i++) {
-    out_buffer[it++] = msg->payload[i];
-    checksum += msg->payload[i];
-  }
-
-  out_buffer[it] = checksum;
-
-  serial_port_->sendCharArray(out_buffer, payload_size + 3);
-}
-
-//}
-
-/* callbackSendRawMessage() //{ */
-
-void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
-
-  uint8_t payload_size = msg->payload.size();
-  uint8_t out_buffer[payload_size];
-
-  for (unsigned int i = 0; i < payload_size; i++) {
-
-    ROS_INFO_STREAM("SENDING " << std::hex << msg->payload[i]);
-    serial_port_->sendCharArray(out_buffer, payload_size);
-  }
-}
-
-//}
-
-// | ------------------------ routines ------------------------ |
 
 /* processMessage() //{ */
 
@@ -339,81 +402,27 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
 
 //}
 
-/* releaseSerialLine() //{ */
-
-void BacaProtocol::releaseSerialLine(void) {
-
-  delete serial_port_;
-}
-
-//}
-
 /* connectToSensors() //{ */
 
 uint8_t BacaProtocol::connectToSensor(void) {
 
-  // Create serial port
-  serial_port_ = new serial_port::SerialPort();
-
-  // Connect serial port
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
-  if (!serial_port_->connect(portname_)) {
+
+  if (!serial_port_.connect(portname_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
+    is_connected_ = false;
     return 0;
   }
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
-
-  lastReceived = ros::Time::now();
+  is_connected_  = true;
+  last_received_ = ros::Time::now();
 
   return 1;
 }
 
 //}
 
-/* main() //{ */
+}  // namespace baca_protocol
 
-int main(int argc, char **argv) {
-
-  ros::init(argc, argv, "BacaProtocol");
-
-  BacaProtocol serial_line;
-
-  ros::Rate loop_rate(100);
-
-  while (ros::ok()) {
-
-    // check whether the teraranger stopped sending data
-    ros::Duration interval  = ros::Time::now() - serial_line.lastReceived;
-    ros::Duration interval2 = ros::Time::now() - serial_line.lastPrinted;
-
-    if (interval2.toSec() > 1.0) {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Got msgs - Garmin: " << serial_line.received_msg_ok_garmin << " Generic msg: " << serial_line.received_msg_ok
-                                                          << "  Wrong checksum: " << serial_line.received_msg_bad_checksum << "; in the last "
-                                                          << interval2.toSec() << " s");
-      serial_line.received_msg_ok_garmin    = 0;
-      serial_line.received_msg_ok           = 0;
-      serial_line.received_msg_bad_checksum = 0;
-      serial_line.lastPrinted               = ros::Time::now();
-    }
-
-    if (interval.toSec() > MAXIMAL_TIME_INTERVAL && serial_line.use_timeout) {
-
-      serial_line.releaseSerialLine();
-
-      ROS_WARN_THROTTLE(1.0, "[%s]: Serial device not responding, resetting connection...", ros::this_node::getName().c_str());
-
-      // if establishing the new connection was successfull
-      if (serial_line.connectToSensor() == 1) {
-
-        ROS_INFO_THROTTLE(1.0, "[%s]: New connection to Serial device was established.", ros::this_node::getName().c_str());
-      }
-    }
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
-
-  return 0;
-}
-
-//}
+PLUGINLIB_EXPORT_CLASS(baca_protocol::BacaProtocol, nodelet::Nodelet);

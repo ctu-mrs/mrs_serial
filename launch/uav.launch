@@ -7,10 +7,25 @@
 
   <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
 
+  <!-- will it run using GNU debugger? -->
+  <arg name="DEBUG" default="false" />
+  <arg unless="$(arg DEBUG)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg DEBUG)" name="launch_prefix_debug" value="debug_roslaunch"/>
+
+  <!-- will it run as standalone nodelet or using a nodelet manager? -->
+  <arg name="standalone" default="true" />
+  <arg name="manager" default="$(arg UAV_NAME)_bacaprotocol_manager" />
+  <arg name="n_threads" default="8" />
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
   <group ns="$(arg UAV_NAME)">
 
-    <!-- launch the node -->
-    <node name="serial$(arg name)" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <!-- launch the nodelet -->
+    <node pkg="nodelet" type="nodelet" name="serial" args="$(arg nodelet) baca_protocol/BacaProtocol $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 

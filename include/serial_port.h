@@ -30,6 +30,8 @@ public:
   bool sendChar(const char c);
   bool sendCharArray(uint8_t* buffer, int len);
 
+  bool checkConnected();
+
   int readSerial(uint8_t* arr, int arr_max_size);
 
   int      serial_port_fd_;

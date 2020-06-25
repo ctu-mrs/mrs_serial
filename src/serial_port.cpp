@@ -20,6 +20,25 @@ SerialPort::~SerialPort() {
 
 //}
 
+/* checkConnected() //{ */
+
+bool SerialPort::checkConnected() {
+
+  struct termios tmp_newtio;
+  int            serial_status = tcgetattr(serial_port_fd_, &tmp_newtio);
+
+  if (serial_status == -1) {
+
+    ROS_ERROR("[%s] Serial port disconected!", ros::this_node::getName().c_str());
+    close(serial_port_fd_);
+    return false;
+  }
+
+  return true;
+}
+
+//}
+
 /* connect() //{ */
 
 bool SerialPort::connect(const std::string port) {
@@ -31,7 +50,7 @@ bool SerialPort::connect(const std::string port) {
   serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
   if (serial_port_fd_ == -1) {
-    ROS_ERROR_THROTTLE(1.0, "[%s] could not open serial port %s", ros::this_node::getName().c_str(), port.c_str());
+    ROS_ERROR_THROTTLE(1.0, "[%s]: could not open serial port %s", ros::this_node::getName().c_str(), port.c_str());
     return false;
 
   } else {
