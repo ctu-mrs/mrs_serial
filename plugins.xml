@@ -1,6 +1,11 @@
-
 <library path="lib/libBacaProtocol">
   <class name="baca_protocol/BacaProtocol" type="baca_protocol::BacaProtocol" base_class_type="nodelet::Nodelet">
-    <description>WaypointFlier nodelet</description>
+    <description>BacaProtocol nodelet</description>
+  </class>
+</library>
+
+<library path="lib/libNmeaParser">
+  <class name="nmea_parser/NmeaParser" type="nmea_parser::NmeaParser" base_class_type="nodelet::Nodelet">
+    <description>NmeaParser nodelet</description>
   </class>
 </library>

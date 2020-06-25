@@ -26,7 +26,6 @@
     <!-- launch the nodelet -->
     <node pkg="nodelet" type="nodelet" name="serial" args="$(arg nodelet) baca_protocol/BacaProtocol $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
-
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />

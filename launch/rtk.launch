@@ -5,10 +5,26 @@
   <arg name="portname" default="/dev/rtk" />
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
+  <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
+
+  <!-- will it run using GNU debugger? -->
+  <arg name="DEBUG" default="false" />
+  <arg unless="$(arg DEBUG)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg DEBUG)" name="launch_prefix_debug" value="debug_roslaunch"/>
+
+  <!-- will it run as standalone nodelet or using a nodelet manager? -->
+  <arg name="standalone" default="true" />
+  <arg name="manager" default="$(arg UAV_NAME)_rtk_manager" />
+  <arg name="n_threads" default="8" />
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
   <group ns="$(arg UAV_NAME)">
 
-    <!-- launch the node -->
-    <node name="rtk" pkg="mrs_serial" type="nmea_parser" output="screen" respawn="true">
+    <!-- launch the nodelet -->
+    <node pkg="nodelet" type="nodelet" name="rtk" args="$(arg nodelet) nmea_parser/NmeaParser $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 

@@ -13,7 +13,13 @@
 
 #include "serial_port.h"
 
+#include <nodelet/nodelet.h>
+#include <pluginlib/class_list_macros.h>
+
 #define MAXIMAL_TIME_INTERVAL 5
+
+namespace nmea_parser
+{
 
 typedef enum
 {
@@ -26,12 +32,15 @@ typedef enum
 
 /* class NmeaParser //{ */
 
-class NmeaParser {
-public:
-  NmeaParser();
+class NmeaParser : public nodelet::Nodelet {
 
+public:
+  virtual void onInit();
+
+private:
   void interpretSerialData(uint8_t data);
-  void callbackSerialRead(const ros::TimerEvent& event);
+  void callbackSerialTimer(const ros::TimerEvent& event);
+  void callbackMaintainerTimer(const ros::TimerEvent& event);
 
   enum serial_receiver_state
   {
@@ -44,14 +53,10 @@ public:
   std::string msg_;
 
   uint8_t connectToSensor(void);
-  void    releaseSerialLine(void);
   void    processMessage();
   void    stringTimer(const ros::TimerEvent& event);
 
   void processGPGGA(std::vector<std::string>& results);
-
-  ros::Time lastReceived;
-  ros::Time lastPrinted;
 
   ros::NodeHandle nh_;
 
@@ -65,8 +70,10 @@ public:
   ros::Subscriber magnet_subscriber;
 
   ros::Timer string_timer_;
+  ros::Timer serial_timer_;
+  ros::Timer maintainer_timer_;
 
-  serial_port::SerialPort* serial_port_;
+  serial_port::SerialPort serial_port_;
 
   rtk_state rtk_state_ = NONE;
 
@@ -86,13 +93,21 @@ public:
   std::string garmin_B_frame_;
 
   std::mutex mutex_msg;
+
+  int msg_counter_ = 0;
+
+  ros::Time last_received_;
+  ros::Time interval_;
+
+  bool is_connected_   = false;
+  bool is_initialized_ = false;
 };
 
 //}
 
-/* NmeaParser() //{ */
+/* onInit() //{ */
 
-NmeaParser::NmeaParser() {
+void NmeaParser::onInit() {
 
   // Get paramters
   nh_ = ros::NodeHandle("~");
@@ -108,17 +123,21 @@ NmeaParser::NmeaParser() {
   bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
   status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
 
-  string_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
+  string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
+  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &NmeaParser::stringTimer, this);
+  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
   ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
-  lastReceived = ros::Time::now();
-  lastPrinted  = ros::Time::now();
-
 
   connectToSensor();
+
+  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &NmeaParser::callbackSerialTimer, this);
+  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::callbackMaintainerTimer, this);
+
+  is_initialized_ = true;
 }
 
 //}
@@ -127,12 +146,12 @@ NmeaParser::NmeaParser() {
 
 /* callbackSerialRead() //{ */
 
-void NmeaParser::callbackSerialRead(const ros::TimerEvent& event) {
+void NmeaParser::callbackSerialTimer(const ros::TimerEvent& event) {
 
   uint8_t read_buffer[serial_buffer_size_];
   int     bytes_read;
 
-  bytes_read = serial_port_->readSerial(read_buffer, serial_buffer_size_);
+  bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
 
   for (int i = 0; i < bytes_read; i++) {
     interpretSerialData(read_buffer[i]);
@@ -142,11 +161,44 @@ void NmeaParser::callbackSerialRead(const ros::TimerEvent& event) {
 
 //}
 
+/* callbackMaintainerTimer() //{ */
+
+void NmeaParser::callbackMaintainerTimer(const ros::TimerEvent& event) {
+
+  if (is_connected_) {
+
+    if (!serial_port_.checkConnected()) {
+      is_connected_ = false;
+      ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "] Serial device is disconnected! ");
+    }
+  }
+
+  if (((ros::Time::now() - last_received_).toSec() > MAXIMAL_TIME_INTERVAL) && use_timeout && is_connected_) {
+
+    is_connected_ = false;
+
+    ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "] Serial port timed out - no messages were received in " << MAXIMAL_TIME_INTERVAL
+                         << " seconds");
+  }
+
+  if (is_connected_) {
+
+    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] Got " << msg_counter_ << " GPGGA/GNGGA messages in last "
+                         << (ros::Time::now() - interval_).toSec() << " s");
+    msg_counter_ = 0;
+    interval_    = ros::Time::now();
+
+  } else {
+
+    connectToSensor();
+  }
+}
+
+//}
+
 /* interpretSerialData() //{ */
 
 void NmeaParser::interpretSerialData(uint8_t single_character) {
-
-  ROS_INFO_STREAM_THROTTLE(1.0, "State:  " << state_);
 
   if (state_ == RECEIVING) {
 
@@ -172,7 +224,7 @@ void NmeaParser::interpretSerialData(uint8_t single_character) {
   }
 
 
-  lastReceived = ros::Time::now();
+  last_received_ = ros::Time::now();
 }
 
 //}
@@ -223,10 +275,6 @@ void NmeaParser::processMessage() {
   if (results[0] == "GPGGA" || results[0] == "GNGGA") {
     processGPGGA(results);
   }
-
-  /* for (unsigned long i = 0; i < results.size(); i++) { */
-  /*   ROS_INFO_STREAM(results[i]); */
-  /* } */
 }
 
 //}
@@ -306,6 +354,7 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   try {
     gpgga_pub_.publish(gpgga_msg);
     bestpos_pub_.publish(bestpos_msg);
+    msg_counter_++;
   }
   catch (...) {
     ROS_ERROR("[Nmea parser]: exception caught during publishing");
@@ -314,75 +363,27 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
 //}
 
-/* releaseSerialLine() //{ */
-
-void NmeaParser::releaseSerialLine(void) {
-
-  delete serial_port_;
-}
-
-//}
-
 /* connectToSensors() //{ */
 
 uint8_t NmeaParser::connectToSensor(void) {
 
-  // Create serial port
-  serial_port_ = new serial_port::SerialPort();
-
-  // Connect serial port
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
-  if (!serial_port_->connect(portname_)) {
+
+  if (!serial_port_.connect(portname_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
+    is_connected_ = false;
     return 0;
   }
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
-
-  lastReceived = ros::Time::now();
+  is_connected_  = true;
+  last_received_ = ros::Time::now();
 
   return 1;
 }
 
 //}
 
-/* main() //{ */
+}  // namespace nmea_parser
 
-int main(int argc, char** argv) {
-
-  ros::init(argc, argv, "NmeaParser");
-
-  NmeaParser serial_line;
-
-  ros::Rate loop_rate(100);
-
-  while (ros::ok()) {
-
-    // check whether the teraranger stopped sending data
-    ros::Duration interval  = ros::Time::now() - serial_line.lastReceived;
-    ros::Duration interval2 = ros::Time::now() - serial_line.lastPrinted;
-
-    if (interval2.toSec() > 1.0) {
-      serial_line.lastPrinted = ros::Time::now();
-    }
-
-    if (interval.toSec() > MAXIMAL_TIME_INTERVAL && serial_line.use_timeout) {
-
-      serial_line.releaseSerialLine();
-
-      ROS_WARN_THROTTLE(1.0, "[%s]: Serial device not responding, resetting connection...", ros::this_node::getName().c_str());
-
-      // if establishing the new connection was successfull
-      if (serial_line.connectToSensor() == 1) {
-
-        ROS_INFO_THROTTLE(1.0, "[%s]: New connection to Serial device was established.", ros::this_node::getName().c_str());
-      }
-    }
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
-
-  return 0;
-}
-
-//}
+PLUGINLIB_EXPORT_CLASS(nmea_parser::NmeaParser, nodelet::Nodelet);

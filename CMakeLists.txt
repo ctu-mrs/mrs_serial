@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 # export the dependencis of this package for who ever depends on us
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES BacaProtocol
+  LIBRARIES BacaProtocol NmeaParser
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
   )
 
@@ -25,10 +25,12 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   )
 
-# make the executables
-add_executable(nmea_parser src/nmea_parser.cpp src/serial_port.cpp)
-add_dependencies(nmea_parser ${catkin_EXPORTED_TARGETS})
-target_link_libraries(nmea_parser ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+# Declare a C++ library
+add_library(NmeaParser src/nmea_parser.cpp src/serial_port.cpp)
+
+target_link_libraries(NmeaParser
+  ${catkin_LIBRARIES}
+  )
 
 # Declare a C++ library
 add_library(BacaProtocol src/baca_protocol.cpp src/serial_port.cpp)
