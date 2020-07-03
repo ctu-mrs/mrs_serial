@@ -46,6 +46,7 @@ private:
 
 
   ros::Timer serial_timer_;
+  ros::Timer fake_timer_;
   ros::Timer maintainer_timer_;
 
   ros::ServiceServer netgun_arm;
@@ -55,6 +56,7 @@ private:
 
   void interpretSerialData(uint8_t data);
   void callbackSerialTimer(const ros::TimerEvent &event);
+  void callbackFakeTimer(const ros::TimerEvent &event);
   void callbackMaintainerTimer(const ros::TimerEvent &event);
 
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -84,6 +86,7 @@ private:
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
+  bool     simulate_fake_garmin;
   bool     use_timeout;
   bool     swap_garmins;
   uint16_t received_msg_ok           = 0;
@@ -91,6 +94,7 @@ private:
   uint16_t received_msg_bad_checksum = 0;
 
   int serial_rate_        = 500;
+  int fake_garmin_rate_   = 50;
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
@@ -121,6 +125,7 @@ void BacaProtocol::onInit() {
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
+  nh_.param("simulate_fake_garmin", simulate_fake_garmin, false);
   nh_.param("use_timeout", use_timeout, true);
   nh_.param("swap_garmins", swap_garmins, false);
   nh_.param("serial_rate", serial_rate_, 500);
@@ -148,6 +153,7 @@ void BacaProtocol::onInit() {
   connectToSensor();
 
   serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &BacaProtocol::callbackSerialTimer, this);
+  fake_timer_       = nh_.createTimer(ros::Rate(fake_garmin_rate_), &BacaProtocol::callbackFakeTimer, this);
   maintainer_timer_ = nh_.createTimer(ros::Rate(1), &BacaProtocol::callbackMaintainerTimer, this);
 
   is_initialized_ = true;
@@ -172,6 +178,26 @@ void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
     interpretSerialData(read_buffer[i]);
   }
   /* processMessage */
+}
+
+//}
+
+/* callbackFakeTimer() //{ */
+
+void BacaProtocol::callbackFakeTimer(const ros::TimerEvent &event) {
+  if (simulate_fake_garmin) {
+
+    sensor_msgs::Range range_msg;
+    range_msg.field_of_view  = 0.0523599;  // +-3 degree
+    range_msg.max_range      = MAX_RANGE * 0.01;
+    range_msg.min_range      = MIN_RANGE * 0.01;
+    range_msg.radiation_type = sensor_msgs::Range::INFRARED;
+    range_msg.header.stamp   = ros::Time::now();
+
+    range_msg.range = 0.0;  // convert to m
+
+    range_publisher_A_.publish(range_msg);
+  }
 }
 
 //}
