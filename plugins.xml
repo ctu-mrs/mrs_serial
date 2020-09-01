@@ -9,3 +9,9 @@
     <description>NmeaParser nodelet</description>
   </class>
 </library>
+
+<library path="lib/libVioImu">
+  <class name="vio_imu/VioImu" type="vio_imu::VioImu" base_class_type="nodelet::Nodelet">
+    <description>VioImu nodelet</description>
+  </class>
+</library>

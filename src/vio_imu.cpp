@@ -9,7 +9,7 @@
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
+/* #include <mrs_msgs/VioImu.h> */
 #include <mrs_msgs/SerialRaw.h>
 
 #include <serial_port.h>
@@ -25,12 +25,12 @@
 #define MAX_RANGE 4000  // cm
 #define MIN_RANGE 10    // cm
 
-namespace baca_protocol
+namespace vio_imu
 {
 
-/* class BacaProtocol //{ */
+/* class VioImu //{ */
 
-class BacaProtocol : public nodelet::Nodelet {
+class VioImu : public nodelet::Nodelet {
 
 public:
   virtual void onInit();
@@ -46,7 +46,6 @@ private:
 
 
   ros::Timer serial_timer_;
-  ros::Timer fake_timer_;
   ros::Timer maintainer_timer_;
 
   ros::ServiceServer netgun_arm;
@@ -56,16 +55,7 @@ private:
 
   void interpretSerialData(uint8_t data);
   void callbackSerialTimer(const ros::TimerEvent &event);
-  void callbackFakeTimer(const ros::TimerEvent &event);
   void callbackMaintainerTimer(const ros::TimerEvent &event);
-
-  bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
-  void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
-
 
   uint8_t connectToSensor(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
@@ -75,10 +65,10 @@ private:
 
   ros::Publisher range_publisher_A_;
   ros::Publisher range_publisher_B_;
-  ros::Publisher baca_protocol_publisher_;
+  ros::Publisher vio_imu_publisher_;
 
   ros::Subscriber raw_message_subscriber;
-  ros::Subscriber baca_protocol_subscriber;
+  ros::Subscriber vio_imu_subscriber;
   ros::Subscriber magnet_subscriber;
 
   serial_port::SerialPort serial_port_;
@@ -86,7 +76,6 @@ private:
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
-  bool     simulate_fake_garmin;
   bool     use_timeout;
   bool     swap_garmins;
   uint16_t received_msg_ok           = 0;
@@ -94,7 +83,6 @@ private:
   uint16_t received_msg_bad_checksum = 0;
 
   int serial_rate_        = 5000;
-  int fake_garmin_rate_   = 50;
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
@@ -115,7 +103,7 @@ private:
 
 /* onInit() //{ */
 
-void BacaProtocol::onInit() {
+void VioImu::onInit() {
 
   // Get paramters
   nh_ = ros::NodeHandle("~");
@@ -124,26 +112,9 @@ void BacaProtocol::onInit() {
 
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
-  nh_.param("publish_bad_checksum", publish_bad_checksum, false);
-  nh_.param("simulate_fake_garmin", simulate_fake_garmin, false);
   nh_.param("use_timeout", use_timeout, true);
-  nh_.param("swap_garmins", swap_garmins, false);
   nh_.param("serial_rate", serial_rate_, 5000);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
-
-  // Publishers
-  std::string postfix_A = swap_garmins ? "_up" : "";
-  std::string postfix_B = swap_garmins ? "" : "_up";
-  range_publisher_A_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_A, 1);
-  range_publisher_B_    = nh_.advertise<sensor_msgs::Range>("range" + postfix_B, 1);
-  garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
-  garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
-
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
-
-  baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
-
-  raw_message_subscriber = nh_.subscribe("raw_in", 1, &BacaProtocol::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -152,9 +123,8 @@ void BacaProtocol::onInit() {
 
   connectToSensor();
 
-  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &BacaProtocol::callbackSerialTimer, this);
-  fake_timer_       = nh_.createTimer(ros::Rate(fake_garmin_rate_), &BacaProtocol::callbackFakeTimer, this);
-  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &BacaProtocol::callbackMaintainerTimer, this);
+  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &VioImu::callbackSerialTimer, this);
+  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &VioImu::callbackMaintainerTimer, this);
 
   is_initialized_ = true;
 }
@@ -167,7 +137,7 @@ void BacaProtocol::onInit() {
 
 /* callbackSerialTimer() //{ */
 
-void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
+void VioImu::callbackSerialTimer(const ros::TimerEvent &event) {
 
   uint8_t read_buffer[serial_buffer_size_];
   int     bytes_read;
@@ -182,29 +152,9 @@ void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
 
 //}
 
-/* callbackFakeTimer() //{ */
-
-void BacaProtocol::callbackFakeTimer(const ros::TimerEvent &event) {
-  if (simulate_fake_garmin) {
-
-    sensor_msgs::Range range_msg;
-    range_msg.field_of_view  = 0.0523599;  // +-3 degree
-    range_msg.max_range      = MAX_RANGE * 0.01;
-    range_msg.min_range      = MIN_RANGE * 0.01;
-    range_msg.radiation_type = sensor_msgs::Range::INFRARED;
-    range_msg.header.stamp   = ros::Time::now();
-
-    range_msg.range = 0.0;  // convert to m
-
-    range_publisher_A_.publish(range_msg);
-  }
-}
-
-//}
-
 /* callbackMaintainerTimer() //{ */
 
-void BacaProtocol::callbackMaintainerTimer(const ros::TimerEvent &event) {
+void VioImu::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
   if (is_connected_) {
 
@@ -240,62 +190,11 @@ void BacaProtocol::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 //}
 
-/* callbackSendMessage() //{ */
-
-void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
-
-  if (!is_initialized_) {
-    return;
-  }
-
-  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << msg->payload[0]);
-
-  std::scoped_lock lock(mutex_msg);
-  uint8_t          payload_size = msg->payload.size();
-  uint8_t          checksum     = 0;
-  uint16_t         it           = 0;
-
-  uint8_t out_buffer[payload_size + 3];
-
-  out_buffer[it++] = 'b';
-  checksum += 'b';
-  out_buffer[it++] = payload_size;
-  checksum += payload_size;
-
-  for (int i = 0; i < payload_size; i++) {
-    out_buffer[it++] = msg->payload[i];
-    checksum += msg->payload[i];
-  }
-
-  out_buffer[it] = checksum;
-
-  serial_port_.sendCharArray(out_buffer, payload_size + 3);
-}
-
-//}
-
-/* callbackSendRawMessage() //{ */
-
-void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
-
-  if (!is_initialized_) {
-    return;
-  }
-
-  uint8_t payload_size = msg->payload.size();
-  uint8_t out_buffer[payload_size];
-
-  ROS_INFO_STREAM("SENDING");
-  serial_port_.sendCharArray(out_buffer, payload_size);
-}
-
-//}
-
 // | ------------------------ routines ------------------------ |
 
 /* interpretSerialData() //{ */
 
-void BacaProtocol::interpretSerialData(uint8_t single_character) {
+void VioImu::interpretSerialData(uint8_t single_character) {
 
   static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE;
   static uint8_t               payload_size = 0;
@@ -306,8 +205,7 @@ void BacaProtocol::interpretSerialData(uint8_t single_character) {
   switch (rec_state) {
     case WAITING_FOR_MESSSAGE:
 
-      if (single_character == 'b' ||
-          single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b'
+      if (single_character == 'b') { 
         checksum       = single_character;
         buffer_counter = 0;
         rec_state      = EXPECTING_SIZE;
@@ -357,77 +255,78 @@ void BacaProtocol::interpretSerialData(uint8_t single_character) {
 
 /* processMessage() //{ */
 
-void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct) {
+void VioImu::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct) {
+    ROS_INFO("[VIOIMU]: gettin some data, oh yeah!");
+  /* if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) { */
+  /*   /1* Special message reserved for garmin rangefinder *1/ */
+  /*   received_msg_ok_garmin++; */
+  /*   uint8_t message_id = input_buffer[0]; */
+  /*   int16_t range      = input_buffer[1] << 8; */
+  /*   range |= input_buffer[2]; */
 
-  if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) {
-    /* Special message reserved for garmin rangefinder */
-    received_msg_ok_garmin++;
-    uint8_t message_id = input_buffer[0];
-    int16_t range      = input_buffer[1] << 8;
-    range |= input_buffer[2];
+  /*   sensor_msgs::Range range_msg; */
+  /*   range_msg.field_of_view  = 0.0523599;  // +-3 degree */
+  /*   range_msg.max_range      = MAX_RANGE * 0.01; */
+  /*   range_msg.min_range      = MIN_RANGE * 0.01; */
+  /*   range_msg.radiation_type = sensor_msgs::Range::INFRARED; */
+  /*   range_msg.header.stamp   = ros::Time::now(); */
 
-    sensor_msgs::Range range_msg;
-    range_msg.field_of_view  = 0.0523599;  // +-3 degree
-    range_msg.max_range      = MAX_RANGE * 0.01;
-    range_msg.min_range      = MIN_RANGE * 0.01;
-    range_msg.radiation_type = sensor_msgs::Range::INFRARED;
-    range_msg.header.stamp   = ros::Time::now();
+  /*   range_msg.range = range * 0.01;  // convert to m */
 
-    range_msg.range = range * 0.01;  // convert to m
+  /*   if (range > MAX_RANGE) { */
+  /*     range_msg.range = std::numeric_limits<double>::infinity(); */
+  /*   } else if (range < MIN_RANGE) { */
+  /*     range_msg.range = -std::numeric_limits<double>::infinity(); */
+  /*   } */
 
-    if (range > MAX_RANGE) {
-      range_msg.range = std::numeric_limits<double>::infinity();
-    } else if (range < MIN_RANGE) {
-      range_msg.range = -std::numeric_limits<double>::infinity();
-    }
+  /*   if (message_id == 0x00) { */
+  /*     range_msg.header.frame_id = garmin_A_frame_; */
 
-    if (message_id == 0x00) {
-      range_msg.header.frame_id = garmin_A_frame_;
+  /*     try { */
+  /*       range_publisher_A_.publish(range_msg); */
+  /*     } */
+  /*     catch (...) { */
+  /*       ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_A_.getTopic().c_str()); */
+  /*     } */
 
-      try {
-        range_publisher_A_.publish(range_msg);
-      }
-      catch (...) {
-        ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_A_.getTopic().c_str());
-      }
+  /*   } else if (message_id == 0x01) { */
+  /*     range_msg.header.frame_id = garmin_B_frame_; */
 
-    } else if (message_id == 0x01) {
-      range_msg.header.frame_id = garmin_B_frame_;
-
-      try {
-        range_publisher_B_.publish(range_msg);
-      }
-      catch (...) {
-        ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_B_.getTopic().c_str());
-      }
-    }
-  } else {
-    /* General serial message */
-    if (checksum_correct) {
-      received_msg_ok++;
-    }
-    mrs_msgs::BacaProtocol msg;
-    msg.stamp = ros::Time::now();
-    for (uint8_t i = 0; i < payload_size; i++) {
-      msg.payload.push_back(input_buffer[i]);
-    }
-    msg.checksum_received   = checksum_rec;
-    msg.checksum_calculated = checksum;
-    msg.checksum_correct    = checksum_correct;
-    try {
-      baca_protocol_publisher_.publish(msg);
-    }
-    catch (...) {
-      ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", baca_protocol_publisher_.getTopic().c_str());
-    }
-  }
+  /*     try { */
+  /*       range_publisher_B_.publish(range_msg); */
+  /*     } */
+  /*     catch (...) { */
+  /*       ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_B_.getTopic().c_str()); */
+  /*     } */
+  /*   } */
+  /* } */
+  /* else { */
+  /*   /1* General serial message *1/ */
+  /*   if (checksum_correct) { */
+  /*     received_msg_ok++; */
+  /*   } */
+  /*   mrs_msgs::VioImu msg; */
+  /*   msg.stamp = ros::Time::now(); */
+  /*   for (uint8_t i = 0; i < payload_size; i++) { */
+  /*     msg.payload.push_back(input_buffer[i]); */
+  /*   } */
+  /*   msg.checksum_received   = checksum_rec; */
+  /*   msg.checksum_calculated = checksum; */
+  /*   msg.checksum_correct    = checksum_correct; */
+  /*   try { */
+  /*     vio_imu_publisher_.publish(msg); */
+  /*   } */
+  /*   catch (...) { */
+  /*     ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", vio_imu_publisher_.getTopic().c_str()); */
+  /*   } */
+  /* } */
 }
 
 //}
 
 /* connectToSensors() //{ */
 
-uint8_t BacaProtocol::connectToSensor(void) {
+uint8_t VioImu::connectToSensor(void) {
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
 
@@ -446,6 +345,6 @@ uint8_t BacaProtocol::connectToSensor(void) {
 
 //}
 
-}  // namespace baca_protocol
+}  // namespace vio_imu
 
-PLUGINLIB_EXPORT_CLASS(baca_protocol::BacaProtocol, nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS(vio_imu::VioImu, nodelet::Nodelet);

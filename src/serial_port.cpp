@@ -60,8 +60,8 @@ bool SerialPort::connect(const std::string port) {
   struct termios newtio;
   bzero(&newtio, sizeof(newtio));  // clear struct for new port settings
 
-  cfsetispeed(&newtio, B115200);  // Input port speed
-  cfsetospeed(&newtio, B115200);  // Output port speed
+  cfsetispeed(&newtio, B230400);  // Input port speed
+  cfsetospeed(&newtio, B230400);  // Output port speed
 
   newtio.c_cflag &= ~PARENB;  // no parity bit
   newtio.c_cflag &= ~CSTOPB;  // 1 stop bit
@@ -83,7 +83,28 @@ bool SerialPort::connect(const std::string port) {
   tcflush(serial_port_fd_, TCIFLUSH);
   tcsetattr(serial_port_fd_, TCSANOW, &newtio);
 
+  setBlocking(serial_port_fd_, 1);
+
   return true;
+}
+
+//}
+
+/* setBlocking //{ */
+
+void SerialPort::setBlocking(int fd, int should_block) {
+  struct termios tty;
+  memset(&tty, 0, sizeof tty);
+  if (tcgetattr(fd, &tty) != 0) {
+    ROS_ERROR("error %d from tggetattr", errno);
+    return;
+  }
+
+  tty.c_cc[VMIN]  = should_block ? 1 : 0;
+  tty.c_cc[VTIME] = 5;  // 0.5 seconds read timeout
+
+  if (tcsetattr(fd, TCSANOW, &tty) != 0)
+    ROS_ERROR("error %d setting term attributes", errno);
 }
 
 //}

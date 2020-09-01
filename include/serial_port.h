@@ -30,14 +30,16 @@ public:
   bool sendChar(const char c);
   bool sendCharArray(uint8_t* buffer, int len);
 
-  bool checkConnected();
+  void setBlocking(int fd, int should_block);
 
-  int readSerial(uint8_t* arr, int arr_max_size);
+    bool checkConnected();
 
-  int      serial_port_fd_;
-  uint8_t  input_buffer[1024];
-  uint16_t input_it = 0;
-};
+    int readSerial(uint8_t * arr, int arr_max_size);
+
+    int      serial_port_fd_;
+    uint8_t  input_buffer[1024];
+    uint16_t input_it = 0;
+  };
 
 }  // namespace serial_port
 

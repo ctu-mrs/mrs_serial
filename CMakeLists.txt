@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 # export the dependencis of this package for who ever depends on us
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES BacaProtocol NmeaParser
+  LIBRARIES BacaProtocol NmeaParser VioImu
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
   )
 
@@ -23,6 +23,13 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  )
+
+# Declare a C++ library
+add_library(VioImu src/vio_imu.cpp src/serial_port.cpp)
+
+target_link_libraries(VioImu
+  ${catkin_LIBRARIES}
   )
 
 # Declare a C++ library
