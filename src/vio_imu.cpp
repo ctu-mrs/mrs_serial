@@ -270,6 +270,7 @@ void VioImu::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t
 
       imu_publisher_.publish(imu);
     } else {
+      imu_publisher_.publish(imu);
       imu_publisher_sync_.publish(imu);
     }
   }
