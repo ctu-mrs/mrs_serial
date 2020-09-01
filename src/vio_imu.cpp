@@ -1,7 +1,7 @@
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
-#include <sensor_msgs/Range.h>
+#include <sensor_msgs/Imu.h>
 #include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
@@ -12,6 +12,7 @@
 /* #include <mrs_msgs/VioImu.h> */
 #include <mrs_msgs/SerialRaw.h>
 
+
 #include <serial_port.h>
 
 #include <nodelet/nodelet.h>
@@ -21,9 +22,8 @@
 
 #define MAXIMAL_TIME_INTERVAL 1
 
-// for garmin
-#define MAX_RANGE 4000  // cm
-#define MIN_RANGE 10    // cm
+const double G       = 9.80665;
+const double DEG2RAD = 57.2958;
 
 namespace vio_imu
 {
@@ -63,13 +63,8 @@ private:
 
   ros::NodeHandle nh_;
 
-  ros::Publisher range_publisher_A_;
-  ros::Publisher range_publisher_B_;
-  ros::Publisher vio_imu_publisher_;
-
-  ros::Subscriber raw_message_subscriber;
-  ros::Subscriber vio_imu_subscriber;
-  ros::Subscriber magnet_subscriber;
+  ros::Publisher imu_publisher_;
+  ros::Publisher imu_publisher_sync_;
 
   serial_port::SerialPort serial_port_;
 
@@ -85,8 +80,8 @@ private:
   int serial_rate_        = 5000;
   int serial_buffer_size_ = 1024;
 
-  std::string portname_;
-  std::string uav_name_;
+  std::string _portname_;
+  std::string _uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
 
@@ -110,15 +105,18 @@ void VioImu::onInit() {
 
   ros::Time::waitForValid();
 
-  nh_.param("uav_name", uav_name_, std::string("uav"));
-  nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("uav_name", _uav_name_, std::string("uav"));
+  nh_.param("portname", _portname_, std::string("/dev/ttyUSB0"));
   nh_.param("use_timeout", use_timeout, true);
   nh_.param("serial_rate", serial_rate_, 5000);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
+  imu_publisher_      = nh_.advertise<sensor_msgs::Imu>("imu_raw", 1);
+  imu_publisher_sync_ = nh_.advertise<sensor_msgs::Imu>("imu_raw_synchronized", 1);
+
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
-  ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), _portname_.c_str());
   ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
 
   connectToSensor();
@@ -205,7 +203,7 @@ void VioImu::interpretSerialData(uint8_t single_character) {
   switch (rec_state) {
     case WAITING_FOR_MESSSAGE:
 
-      if (single_character == 'b') { 
+      if (single_character == 'b') {
         checksum       = single_character;
         buffer_counter = 0;
         rec_state      = EXPECTING_SIZE;
@@ -256,71 +254,40 @@ void VioImu::interpretSerialData(uint8_t single_character) {
 /* processMessage() //{ */
 
 void VioImu::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct) {
-    ROS_INFO("[VIOIMU]: gettin some data, oh yeah!");
-  /* if (payload_size == 3 && (input_buffer[0] == 0x00 || input_buffer[0] == 0x01) && checksum_correct) { */
-  /*   /1* Special message reserved for garmin rangefinder *1/ */
-  /*   received_msg_ok_garmin++; */
-  /*   uint8_t message_id = input_buffer[0]; */
-  /*   int16_t range      = input_buffer[1] << 8; */
-  /*   range |= input_buffer[2]; */
 
-  /*   sensor_msgs::Range range_msg; */
-  /*   range_msg.field_of_view  = 0.0523599;  // +-3 degree */
-  /*   range_msg.max_range      = MAX_RANGE * 0.01; */
-  /*   range_msg.min_range      = MIN_RANGE * 0.01; */
-  /*   range_msg.radiation_type = sensor_msgs::Range::INFRARED; */
-  /*   range_msg.header.stamp   = ros::Time::now(); */
+  if (payload_size == 13 && (input_buffer[0] == 0x30 || input_buffer[0] == 0x31) && checksum_correct) {
 
-  /*   range_msg.range = range * 0.01;  // convert to m */
+    int32_t acc_x, acc_y, acc_z    = 0;
+    int32_t gyro_x, gyro_y, gyro_z = 0;
 
-  /*   if (range > MAX_RANGE) { */
-  /*     range_msg.range = std::numeric_limits<double>::infinity(); */
-  /*   } else if (range < MIN_RANGE) { */
-  /*     range_msg.range = -std::numeric_limits<double>::infinity(); */
-  /*   } */
+    acc_x = int16_t(input_buffer[1] << 8) | (input_buffer[2] & 0xff);
+    acc_y = int16_t(input_buffer[3] << 8) | (input_buffer[4] & 0xff);
+    acc_z = int16_t(input_buffer[5] << 8) | (input_buffer[6] & 0xff);
 
-  /*   if (message_id == 0x00) { */
-  /*     range_msg.header.frame_id = garmin_A_frame_; */
+    gyro_x = int16_t(input_buffer[7] << 8) | (input_buffer[8] & 0xff);
+    gyro_y = int16_t(input_buffer[9] << 8) | (input_buffer[10] & 0xff);
+    gyro_z = int16_t(input_buffer[11] << 8) | (input_buffer[12] & 0xff);
 
-  /*     try { */
-  /*       range_publisher_A_.publish(range_msg); */
-  /*     } */
-  /*     catch (...) { */
-  /*       ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_A_.getTopic().c_str()); */
-  /*     } */
+    sensor_msgs::Imu imu;
 
-  /*   } else if (message_id == 0x01) { */
-  /*     range_msg.header.frame_id = garmin_B_frame_; */
+    imu.linear_acceleration.x = (double(acc_x) / 8192) * G;
+    imu.linear_acceleration.y = (double(acc_y) / 8192) * G;
+    imu.linear_acceleration.z = (double(acc_z) / 8192) * G;
 
-  /*     try { */
-  /*       range_publisher_B_.publish(range_msg); */
-  /*     } */
-  /*     catch (...) { */
-  /*       ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", range_publisher_B_.getTopic().c_str()); */
-  /*     } */
-  /*   } */
-  /* } */
-  /* else { */
-  /*   /1* General serial message *1/ */
-  /*   if (checksum_correct) { */
-  /*     received_msg_ok++; */
-  /*   } */
-  /*   mrs_msgs::VioImu msg; */
-  /*   msg.stamp = ros::Time::now(); */
-  /*   for (uint8_t i = 0; i < payload_size; i++) { */
-  /*     msg.payload.push_back(input_buffer[i]); */
-  /*   } */
-  /*   msg.checksum_received   = checksum_rec; */
-  /*   msg.checksum_calculated = checksum; */
-  /*   msg.checksum_correct    = checksum_correct; */
-  /*   try { */
-  /*     vio_imu_publisher_.publish(msg); */
-  /*   } */
-  /*   catch (...) { */
-  /*     ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", vio_imu_publisher_.getTopic().c_str()); */
-  /*   } */
-  /* } */
-}
+    imu.angular_velocity.x = (double(gyro_x) / 16.384) / DEG2RAD;
+    imu.angular_velocity.y = (double(gyro_y) / 16.384) / DEG2RAD;
+    imu.angular_velocity.z = (double(gyro_z) / 16.384) / DEG2RAD;
+
+    imu.header.stamp    = ros::Time::now();
+    imu.header.frame_id = _uav_name_ + "/vio_imu";
+    if (input_buffer[0] == 0x30) {
+
+      imu_publisher_.publish(imu);
+    } else {
+      imu_publisher_sync_.publish(imu);
+    }
+  }
+}  // namespace vio_imu
 
 //}
 
@@ -330,7 +297,7 @@ uint8_t VioImu::connectToSensor(void) {
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
 
-  if (!serial_port_.connect(portname_)) {
+  if (!serial_port_.connect(_portname_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     is_connected_ = false;
     return 0;
