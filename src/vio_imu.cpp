@@ -1,17 +1,12 @@
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
+
 #include <sensor_msgs/Imu.h>
-#include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
-#include <std_srvs/SetBool.h>
-#include <std_msgs/Empty.h>
 #include <mutex>
 
 #include <string>
-/* #include <mrs_msgs/VioImu.h> */
-#include <mrs_msgs/SerialRaw.h>
-
 
 #include <serial_port.h>
 
@@ -72,9 +67,7 @@ private:
 
   bool     publish_bad_checksum;
   bool     use_timeout;
-  bool     swap_garmins;
   uint16_t received_msg_ok           = 0;
-  uint16_t received_msg_ok_garmin    = 0;
   uint16_t received_msg_bad_checksum = 0;
 
   int serial_rate_        = 5000;
@@ -82,10 +75,6 @@ private:
 
   std::string _portname_;
   std::string _uav_name_;
-  std::string garmin_A_frame_;
-  std::string garmin_B_frame_;
-
-  std::mutex mutex_msg;
 
   ros::Time interval_      = ros::Time::now();
   ros::Time last_received_ = ros::Time::now();
@@ -106,10 +95,9 @@ void VioImu::onInit() {
   ros::Time::waitForValid();
 
   nh_.param("uav_name", _uav_name_, std::string("uav"));
-  nh_.param("portname", _portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("portname", _portname_, std::string("/dev/vio_imu"));
   nh_.param("use_timeout", use_timeout, true);
   nh_.param("serial_rate", serial_rate_, 5000);
-  nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   imu_publisher_      = nh_.advertise<sensor_msgs::Imu>("imu_raw", 1);
   imu_publisher_sync_ = nh_.advertise<sensor_msgs::Imu>("imu_raw_synchronized", 1);
@@ -117,7 +105,6 @@ void VioImu::onInit() {
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), _portname_.c_str());
-  ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
 
   connectToSensor();
 
@@ -172,9 +159,6 @@ void VioImu::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
   if (is_connected_) {
 
-    ROS_INFO_STREAM("Got msgs - Garmin: " << received_msg_ok_garmin << " Generic msg: " << received_msg_ok << "  Wrong checksum: " << received_msg_bad_checksum
-                                          << "; in the last " << (ros::Time::now() - interval_).toSec() << " s");
-    received_msg_ok_garmin    = 0;
     received_msg_ok           = 0;
     received_msg_bad_checksum = 0;
 
@@ -199,6 +183,8 @@ void VioImu::interpretSerialData(uint8_t single_character) {
   static uint8_t               input_buffer[BUFFER_SIZE];
   static uint8_t               buffer_counter = 0;
   static uint8_t               checksum       = 0;
+
+  ROS_INFO_THROTTLE(1.0, "[VioImu]: receiving IMU ok ");
 
   switch (rec_state) {
     case WAITING_FOR_MESSSAGE:

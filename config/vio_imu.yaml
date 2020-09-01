@@ -1,0 +1,2 @@
+use_timeout: true
+serial_rate: 50000
