@@ -1,4 +1,4 @@
-## Serial protocol
+## MRS serial protocol [![Build Status](https://travis-ci.com/ctu-mrs/mrs_serial.svg?branch=master)](https://travis-ci.com/ctu-mrs/mrs_serial)
 
 Messages sent/received throuh the serial line consist of 8 bit values.
 The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
