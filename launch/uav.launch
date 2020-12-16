@@ -35,7 +35,7 @@
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="$(arg portname)"/>
       <param name="baudrate" value="$(arg baudrate)"/>
-      <param name="use_timeout" value="true"/>
+      <param name="use_timeout" value="false"/>
 
       <param name="swap_garmins" value="$(arg swap_garmins)"/>
 

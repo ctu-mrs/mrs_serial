@@ -172,18 +172,14 @@ void BacaProtocol::onInit() {
 
 void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
 
-  /* ROS_INFO("[BacaProtocol]: serial timer callback"); */
-
   uint8_t read_buffer[serial_buffer_size_];
   int     bytes_read;
 
   bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
 
-  /* ROS_INFO_STREAM("[BacaProtocol]: serial timer callback " << bytes_read); */
 
   for (int i = 0; i < bytes_read; i++) {
     interpretSerialData(read_buffer[i]);
-    /* ROS_INFO_STREAM("[BacaProtocol]: " << read_buffer[i]); */
   }
   /* processMessage */
 }

@@ -131,7 +131,7 @@ bool SerialPort::connect(const std::string port, int baudrate) {
   tcflush(serial_port_fd_, TCIFLUSH);
   tcsetattr(serial_port_fd_, TCSANOW, &newtio);
 
-  setBlocking(serial_port_fd_, 1);
+  setBlocking(serial_port_fd_, 0);
 
   return true;
 }
@@ -149,7 +149,7 @@ void SerialPort::setBlocking(int fd, int should_block) {
   }
 
   tty.c_cc[VMIN]  = should_block ? 1 : 0;
-  tty.c_cc[VTIME] = 5;  // 0.5 seconds read timeout
+  tty.c_cc[VTIME] = 0;  // 0.0 seconds read timeout
 
   if (tcsetattr(fd, TCSANOW, &tty) != 0)
     ROS_ERROR("error %d setting term attributes", errno);
