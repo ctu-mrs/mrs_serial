@@ -98,6 +98,7 @@ private:
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
+  int baudrate_;
   std::string uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
@@ -124,6 +125,7 @@ void BacaProtocol::onInit() {
 
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("baudrate", baudrate_, 115200);
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("simulate_fake_garmin", simulate_fake_garmin, false);
   nh_.param("use_timeout", use_timeout, true);
@@ -148,6 +150,7 @@ void BacaProtocol::onInit() {
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), baudrate_);
   ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
 
   connectToSensor();
@@ -169,13 +172,18 @@ void BacaProtocol::onInit() {
 
 void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
 
+  /* ROS_INFO("[BacaProtocol]: serial timer callback"); */
+
   uint8_t read_buffer[serial_buffer_size_];
   int     bytes_read;
 
   bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
 
+  /* ROS_INFO_STREAM("[BacaProtocol]: serial timer callback " << bytes_read); */
+
   for (int i = 0; i < bytes_read; i++) {
     interpretSerialData(read_buffer[i]);
+    /* ROS_INFO_STREAM("[BacaProtocol]: " << read_buffer[i]); */
   }
   /* processMessage */
 }
@@ -431,7 +439,7 @@ uint8_t BacaProtocol::connectToSensor(void) {
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
 
-  if (!serial_port_.connect(portname_)) {
+  if (!serial_port_.connect(portname_, baudrate_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     is_connected_ = false;
     return 0;

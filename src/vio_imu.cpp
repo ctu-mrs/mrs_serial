@@ -74,6 +74,7 @@ private:
   int serial_buffer_size_ = 1024;
 
   std::string _portname_;
+  int baudrate_;
   std::string _uav_name_;
 
   ros::Time interval_      = ros::Time::now();
@@ -96,6 +97,7 @@ void VioImu::onInit() {
 
   nh_.param("uav_name", _uav_name_, std::string("uav"));
   nh_.param("portname", _portname_, std::string("/dev/vio_imu"));
+  nh_.param("baudrate", baudrate_);
   nh_.param("use_timeout", use_timeout, true);
   nh_.param("serial_rate", serial_rate_, 5000);
 
@@ -105,6 +107,7 @@ void VioImu::onInit() {
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), _portname_.c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), baudrate_);
 
   connectToSensor();
 
@@ -284,7 +287,7 @@ uint8_t VioImu::connectToSensor(void) {
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
 
-  if (!serial_port_.connect(_portname_)) {
+  if (!serial_port_.connect(_portname_, baudrate_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     is_connected_ = false;
     return 0;

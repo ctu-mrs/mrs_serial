@@ -2,7 +2,9 @@
 
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
   <arg name="name" default="" />
-  <arg name="portname" default="/dev/arduino" />
+  <arg name="portname" default="/dev/ttyUSB0" />
+  <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
+  <arg name="baudrate" default="115200" /> 
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
@@ -32,6 +34,7 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="portname" value="$(arg portname)"/>
+      <param name="baudrate" value="$(arg baudrate)"/>
       <param name="use_timeout" value="true"/>
 
       <param name="swap_garmins" value="$(arg swap_garmins)"/>

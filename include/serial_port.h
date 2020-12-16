@@ -24,7 +24,7 @@ public:
   SerialPort();
   virtual ~SerialPort();
 
-  bool connect(const std::string port);
+  bool connect(const std::string port, int baudrate);
   void disconnect();
 
   bool sendChar(const char c);

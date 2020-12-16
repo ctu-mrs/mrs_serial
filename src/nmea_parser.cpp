@@ -88,6 +88,7 @@ private:
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
+  int baudrate_;
   std::string uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
@@ -116,6 +117,7 @@ void NmeaParser::onInit() {
 
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
+  nh_.param("baudrate", baudrate_);
   nh_.param("serial_rate", serial_rate_, 500);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
@@ -130,6 +132,7 @@ void NmeaParser::onInit() {
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
   ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), portname_.c_str());
+  ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), baudrate_);
   ROS_INFO_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName().c_str() << "] publishing messages with wrong checksum: " << publish_bad_checksum);
 
   connectToSensor();
@@ -369,7 +372,7 @@ uint8_t NmeaParser::connectToSensor(void) {
 
   ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
 
-  if (!serial_port_.connect(portname_)) {
+  if (!serial_port_.connect(portname_, baudrate_)) {
     ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
     is_connected_ = false;
     return 0;

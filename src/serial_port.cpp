@@ -41,7 +41,7 @@ bool SerialPort::checkConnected() {
 
 /* connect() //{ */
 
-bool SerialPort::connect(const std::string port) {
+bool SerialPort::connect(const std::string port, int baudrate) {
 
   // Open serial port
   // O_RDWR - Read and write
@@ -60,8 +60,56 @@ bool SerialPort::connect(const std::string port) {
   struct termios newtio;
   bzero(&newtio, sizeof(newtio));  // clear struct for new port settings
 
-  cfsetispeed(&newtio, B230400);  // Input port speed
-  cfsetospeed(&newtio, B230400);  // Output port speed
+  uint16_t baudrate_set;
+  switch (baudrate) {
+    case 9600: {
+      baudrate_set = B9600;
+      break;
+    }
+    case 19200: {
+      baudrate_set = B19200;
+      break;
+    }
+    case 38400: {
+      baudrate_set = B38400;
+      break;
+    }
+    case 57600: {
+      baudrate_set = B57600;
+      break;
+    }
+    case 115200: {
+      baudrate_set = B115200;
+      break;
+    }
+    case 230400: {
+      baudrate_set = B230400;
+      break;
+    }
+    case 460800: {
+      baudrate_set = B460800;
+      break;
+    }
+    case 500000: {
+      baudrate_set = B500000;
+      break;
+    }
+    case 576000: {
+      baudrate_set = B576000;
+      break;
+    }
+    case 921600: {
+      baudrate_set = B921600;
+      break;
+    }
+    default:
+      baudrate_set = 0;
+      ROS_ERROR_STREAM("[SerialPort] Unsupported baudrate: " << baudrate);
+      return false;
+  }
+
+  cfsetispeed(&newtio, baudrate_set);  // Input port speed
+  cfsetospeed(&newtio, baudrate_set);  // Output port speed
 
   newtio.c_cflag &= ~PARENB;  // no parity bit
   newtio.c_cflag &= ~CSTOPB;  // 1 stop bit
