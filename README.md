@@ -1,4 +1,7 @@
-## MRS serial protocol [![Build Status](https://travis-ci.com/ctu-mrs/mrs_serial.svg?branch=master)](https://travis-ci.com/ctu-mrs/mrs_serial)
+## MRS serial protocol
+
+| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 
 Messages sent/received throuh the serial line consist of 8 bit values.
 The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
@@ -83,13 +86,13 @@ void send_data(uint16_t data) {
   //payload
   Serial.write(0x17); // message_id
   checksum += 0x17;
-  
+
   Serial.write(bytes[0]);
   checksum += bytes[0];
-  
+
   Serial.write(bytes[1]);
   checksum += bytes[1];
-  
+
   //checksum
   Serial.write(checksum);
 }
@@ -113,7 +116,7 @@ by default, mrs_serial will only publish messages with correct checksums, other 
 
 ## How to use - sending data from ROS to a serial device
 
-To send a message, publish it on the topic 
+To send a message, publish it on the topic
 ```
 /uav_name/mrs_serial/send_message
 ```
