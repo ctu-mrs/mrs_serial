@@ -19,6 +19,7 @@
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>mrs_msgs</depend>
+  <depend>mrs_lib</depend>
 
   <export>
 

@@ -1,2 +1,2 @@
 use_timeout: true
-serial_rate: 50000
+baudrate: 115200

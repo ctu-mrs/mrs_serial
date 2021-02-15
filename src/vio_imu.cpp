@@ -6,6 +6,8 @@
 #include <std_srvs/Trigger.h>
 #include <mutex>
 
+#include <mrs_lib/param_loader.h>
+
 #include <string>
 
 #include <serial_port.h>
@@ -66,7 +68,7 @@ private:
   boost::function<void(uint8_t)> serial_data_callback_function_;
 
   bool     publish_bad_checksum;
-  bool     use_timeout;
+  bool     _use_timeout_;
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_bad_checksum = 0;
 
@@ -95,11 +97,24 @@ void VioImu::onInit() {
 
   ros::Time::waitForValid();
 
-  nh_.param("uav_name", _uav_name_, std::string("uav"));
-  nh_.param("portname", _portname_, std::string("/dev/vio_imu"));
-  nh_.param("baudrate", baudrate_);
-  nh_.param("use_timeout", use_timeout, true);
-  nh_.param("serial_rate", serial_rate_, 5000);
+  // | ---------------------- Param loader ---------------------- |
+
+  mrs_lib::ParamLoader param_loader(nh_, "VioImu");
+
+  param_loader.loadParam("uav_name", _uav_name_);
+  param_loader.loadParam("portname", _portname_, std::string("/dev/vio_imu"));
+  param_loader.loadParam("baudrate", baudrate_);
+  param_loader.loadParam("use_timeout", _use_timeout_, true);
+  param_loader.loadParam("serial_rate", serial_rate_, 115200);
+
+  if (!param_loader.loadedSuccessfully()) {
+    ROS_ERROR("[Status]: Could not load all parameters!");
+    ros::shutdown();
+  } else {
+    ROS_INFO("[Status]: All params loaded!");
+  }
+
+  // | ---------------------------------------------------------- |
 
   imu_publisher_      = nh_.advertise<sensor_msgs::Imu>("imu_raw", 1);
   imu_publisher_sync_ = nh_.advertise<sensor_msgs::Imu>("imu_raw_synchronized", 1);
@@ -152,7 +167,7 @@ void VioImu::callbackMaintainerTimer(const ros::TimerEvent &event) {
     }
   }
 
-  if (((ros::Time::now() - last_received_).toSec() > MAXIMAL_TIME_INTERVAL) && use_timeout && is_connected_) {
+  if (((ros::Time::now() - last_received_).toSec() > MAXIMAL_TIME_INTERVAL) && _use_timeout_ && is_connected_) {
 
     is_connected_ = false;
 

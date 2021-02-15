@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   mrs_msgs
   std_msgs
+  mrs_lib
   )
 
 catkin_package(
