@@ -34,6 +34,7 @@
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+      <param name="baudrate" type="int" value="$(arg baudrate)" />
       <param name="portname" value="$(arg portname)"/>
       <param name="use_timeout" value="true"/>
 
