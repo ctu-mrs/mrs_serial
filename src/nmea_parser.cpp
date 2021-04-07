@@ -65,10 +65,6 @@ private:
   ros::Publisher baca_protocol_publisher_;
   ros::Publisher status_string_publisher_;
 
-  ros::Subscriber raw_message_subscriber;
-  ros::Subscriber baca_protocol_subscriber;
-  ros::Subscriber magnet_subscriber;
-
   ros::Timer string_timer_;
   ros::Timer serial_timer_;
   ros::Timer maintainer_timer_;

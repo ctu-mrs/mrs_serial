@@ -143,9 +143,9 @@ void BacaProtocol::onInit() {
 
   baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
-  baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 1, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
+  baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 10, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
-  raw_message_subscriber = nh_.subscribe("raw_in", 1, &BacaProtocol::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
+  raw_message_subscriber = nh_.subscribe("raw_in", 10, &BacaProtocol::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
