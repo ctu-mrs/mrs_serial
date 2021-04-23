@@ -62,6 +62,7 @@ private:
 
   ros::Publisher gpgga_pub_;
   ros::Publisher bestpos_pub_;
+  ros::Publisher string_pub_;
   ros::Publisher baca_protocol_publisher_;
   ros::Publisher status_string_publisher_;
 
@@ -84,7 +85,7 @@ private:
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
-  int baudrate_;
+  int         baudrate_;
   std::string uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
@@ -113,12 +114,13 @@ void NmeaParser::onInit() {
 
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
-  nh_.param("baudrate", baudrate_);
+  nh_.param("baudrate", baudrate_, 115200);
   nh_.param("serial_rate", serial_rate_, 500);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   gpgga_pub_               = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
   bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
+  string_pub_              = nh_.advertise<std_msgs::String>("status_out", 1);
   status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
 
   string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
@@ -183,7 +185,7 @@ void NmeaParser::callbackMaintainerTimer(const ros::TimerEvent& event) {
   if (is_connected_) {
 
     ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] Got " << msg_counter_ << " GPGGA/GNGGA messages in last "
-                         << (ros::Time::now() - interval_).toSec() << " s");
+                        << (ros::Time::now() - interval_).toSec() << " s");
     msg_counter_ = 0;
     interval_    = ros::Time::now();
 
@@ -203,7 +205,7 @@ void NmeaParser::interpretSerialData(uint8_t single_character) {
 
     if (single_character == '\n') {
 
-      ROS_INFO_STREAM(msg_);
+      ROS_INFO_STREAM_THROTTLE(1.0, "getting_msgs");
       processMessage();
       msg_   = "";
       state_ = WAITING_FOR_DOLLAR;
@@ -350,9 +352,13 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
       rtk_state_                = NONE;
       break;
   }
+  std_msgs::String string_msg;
+  string_msg.data = "RTK: " + bestpos_msg.position_type;
   try {
     gpgga_pub_.publish(gpgga_msg);
     bestpos_pub_.publish(bestpos_msg);
+    string_pub_.publish(string_msg);
+
     msg_counter_++;
   }
   catch (...) {

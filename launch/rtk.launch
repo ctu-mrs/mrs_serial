@@ -40,7 +40,7 @@
       <!-- Publishers -->
       <remap from="~gpgga_out" to="~gpgga" />
       <remap from="~bestpos_out" to="~bestpos" />
-      <remap from="~string_out" to="/$(arg UAV_NAME)/mrs_uav_status/display_string" />
+      <remap from="~status_out" to="/$(arg UAV_NAME)/mrs_uav_status/display_string" />
 
     </node>
 
