@@ -69,6 +69,7 @@ private:
 
   bool     publish_bad_checksum;
   bool     _use_timeout_;
+  bool     _verbose_;
   uint16_t received_msg_ok           = 0;
   uint16_t received_msg_bad_checksum = 0;
 
@@ -93,8 +94,7 @@ private:
 void VioImu::onInit() {
 
   // Get paramters
-  nh_ = ros::NodeHandle("~");
-
+  nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
   ros::Time::waitForValid();
 
   // | ---------------------- Param loader ---------------------- |
@@ -106,6 +106,7 @@ void VioImu::onInit() {
   param_loader.loadParam("baudrate", baudrate_);
   param_loader.loadParam("use_timeout", _use_timeout_, true);
   param_loader.loadParam("serial_rate", serial_rate_, 115200);
+  param_loader.loadParam("verbose", _verbose_, true);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
@@ -202,7 +203,8 @@ void VioImu::interpretSerialData(uint8_t single_character) {
   static uint8_t               buffer_counter = 0;
   static uint8_t               checksum       = 0;
 
-  ROS_INFO_THROTTLE(1.0, "[VioImu]: receiving IMU ok ");
+  if (_verbose_)
+    ROS_INFO_STREAM_THROTTLE(1.0, "[VioImu]: receiving IMU ok");
 
   switch (rec_state) {
     case WAITING_FOR_MESSSAGE:
