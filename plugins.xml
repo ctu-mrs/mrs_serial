@@ -15,3 +15,9 @@
     <description>VioImu nodelet</description>
   </class>
 </library>
+
+<library path="lib/libServo">
+  <class name="servo/Servo" type="servo::Servo" base_class_type="nodelet::Nodelet">
+    <description>Servo nodelet</description>
+  </class>
+</library>

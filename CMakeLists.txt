@@ -41,3 +41,9 @@ add_library(BacaProtocol src/baca_protocol.cpp src/serial_port.cpp)
 target_link_libraries(BacaProtocol
   ${catkin_LIBRARIES}
   )
+
+add_library(Servo src/servo.cpp src/serial_port.cpp)
+
+target_link_libraries(Servo
+  ${catkin_LIBRARIES}
+  )
