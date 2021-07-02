@@ -25,25 +25,26 @@ include_directories(
   )
 
 add_library(VioImu src/vio_imu.cpp src/serial_port.cpp)
-
 target_link_libraries(VioImu
   ${catkin_LIBRARIES}
   )
 
 add_library(NmeaParser src/nmea_parser.cpp src/serial_port.cpp)
-
 target_link_libraries(NmeaParser
   ${catkin_LIBRARIES}
   )
 
 add_library(BacaProtocol src/baca_protocol.cpp src/serial_port.cpp)
-
 target_link_libraries(BacaProtocol
   ${catkin_LIBRARIES}
   )
 
 add_library(Servo src/servo.cpp src/serial_port.cpp)
-
 target_link_libraries(Servo
+  ${catkin_LIBRARIES}
+  )
+
+add_library(Gimbal src/gimbap.cpp src/serial_port.cpp)
+target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
