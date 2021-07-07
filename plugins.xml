@@ -21,3 +21,9 @@
     <description>Servo nodelet</description>
   </class>
 </library>
+
+<library path="lib/libGimbal">
+  <class name="gimbal/Gimbal" type="gimbal::Gimbal" base_class_type="nodelet::Nodelet">
+    <description>A basic driver for a gimbal over MAVLink</description>
+  </class>
+</library>

@@ -1,0 +1,23 @@
+# how often should the driver send a heartbeat to the gimbal
+heartbeat_period: 1.0 # seconds
+
+# this is the default system and component ID for an autopilot
+driver:
+  system_id: 1
+  component_id: 1
+
+# this is the default system and component ID for gimbals
+gimbal:
+  system_id: 1
+  component_id: 154
+
+# Example useful streams that can be requested from SimpleBGC gimbals include:
+# enum name                         enum value    returned stream
+# MAV_DATA_STREAM_RAW_SENSORS       1             RAW_IMU
+# MAV_DATA_STREAM_RC_CHANNELS       3             RC_CHANNELS_SCALED
+# MAV_DATA_STREAM_RAW_CONTROLLER    4             ATTITUDE
+# MAV_DATA_STREAM_EXTRA1            10            ATTITUDE
+# MAV_DATA_STREAM_EXTRA2            11            ATTITUDE
+stream_requests:
+  ids: [10]
+  rates: [200]

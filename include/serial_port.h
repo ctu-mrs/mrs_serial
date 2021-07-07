@@ -11,34 +11,31 @@
 #include <termios.h>  // POSIX terminal control definitions
 #include <sys/ioctl.h>
 
-#include <boost/thread.hpp>
-#include <boost/function.hpp>
-
 #include <string>
 
 namespace serial_port
 {
 
-class SerialPort {
-public:
-  SerialPort();
-  virtual ~SerialPort();
+  class SerialPort
+  {
+  public:
+    SerialPort();
+    virtual ~SerialPort();
 
-  bool connect(const std::string port, int baudrate);
-  void disconnect();
+    bool connect(const std::string port, int baudrate);
+    void disconnect();
 
-  bool sendChar(const char c);
-  bool sendCharArray(uint8_t* buffer, int len);
+    bool sendChar(const char c);
+    bool sendCharArray(uint8_t* buffer, int len);
 
-  void setBlocking(int fd, int should_block);
+    void setBlocking(int fd, int should_block);
 
     bool checkConnected();
 
-    int readSerial(uint8_t * arr, int arr_max_size);
+    bool readChar(uint8_t* c);
+    int readSerial(uint8_t* arr, int arr_max_size);
 
-    int      serial_port_fd_;
-    uint8_t  input_buffer[1024];
-    uint16_t input_it = 0;
+    int serial_port_fd_;
   };
 
 }  // namespace serial_port

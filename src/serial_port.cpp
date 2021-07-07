@@ -120,7 +120,7 @@ bool SerialPort::connect(const std::string port, int baudrate) {
   newtio.c_oflag = 0;  // Raw output
   newtio.c_lflag = 0;  // Raw input is unprocessed
 
-  // |  coppied from MAVROS to possibly fix the issue with arduino  |
+  // |  copied from MAVROS to possibly fix the issue with arduino  |
   newtio.c_iflag &= ~(IXOFF | IXON);
   newtio.c_cflag &= ~CRTSCTS;
   // | ----------------------------  ---------------------------- |
@@ -161,7 +161,6 @@ void SerialPort::setBlocking(int fd, int should_block) {
 
 void SerialPort::disconnect() {
 
-  // TODO(lfr) wait for thread to finish
   try {
 
     close(serial_port_fd_);
@@ -208,9 +207,16 @@ bool SerialPort::sendCharArray(uint8_t* buffer, int len) {
 
 //}
 
-/* read() //{ */
+/* readSerial() //{ */
 int SerialPort::readSerial(uint8_t* arr, int arr_max_size) {
   return read(serial_port_fd_, arr, arr_max_size);
+}
+
+//}
+
+/* readChar() //{ */
+bool SerialPort::readChar(uint8_t* c) {
+  return read(serial_port_fd_, c, 1);
 }
 
 //}
