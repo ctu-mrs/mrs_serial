@@ -3,6 +3,7 @@
 #include <limits>
 #include <ros/package.h>
 #include <ros/ros.h>
+#include <nav_msgs/Odometry.h>
 #include <mutex>
 
 #include <string>
@@ -13,8 +14,6 @@
 #include <mrs_lib/param_loader.h>
 
 #include "mavlink/mavlink.h"
-#include "ros/forwards.h"
-#include "ros/init.h"
 
 namespace gimbal
 {
@@ -72,8 +71,9 @@ namespace gimbal
       const bool connected = connect();
       if (connected)
       {
-        m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
-        m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
+        m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
+        m_tim_receiving = m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
+        m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("gimbal_attitude", 10);
       }
       else
       {
@@ -129,6 +129,7 @@ namespace gimbal
       const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
 
       // send the heartbeat message
+      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending heartbeat.");
       serial_port_.sendCharArray(buf, len);
 
       // request data from the gimbal every N heartbeats
@@ -210,10 +211,14 @@ namespace gimbal
         const uint16_t request_stream_rate = static_cast<uint16_t>(request_stream_rate_loaded);
 
         const bool start = true;
+        ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message stream #%u at rate %uHz", request_stream_id, request_stream_rate);
         mavlink_msg_request_data_stream_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, request_stream_id, request_stream_rate, start);
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
         success = success && serial_port_.sendCharArray(buf, len);
       }
+
+      // TODO: Request the value of the "EULER_ORDER" parameter to know in what format does the attitude arrive
+      /* mavlink_msg_param_value_get_param_id() */
       return success;
     }
     //}
@@ -227,6 +232,7 @@ namespace gimbal
       uint8_t c;
       while (serial_port_.readChar(&c))
       {
+        m_chars_received++;
         // Try to get a new message
         if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status))
         {
@@ -235,13 +241,13 @@ namespace gimbal
           {
             case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
             {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: Receiving gimbal heartbeat.");
+              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal heartbeat.");
             }
             break;
 
             case MAVLINK_MSG_ID_SYS_STATUS:  // #1: SYS_STATUS
             {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: Receiving gimbal status.");
+              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal status.");
               /* Message decoding: PRIMITIVE
                *    mavlink_msg_sys_status_decode(const mavlink_message_t* msg, mavlink_sys_status_t* sys_status)
                */
@@ -252,7 +258,7 @@ namespace gimbal
 
             case MAVLINK_MSG_ID_PARAM_VALUE:  // #22: PARAM_VALUE
             {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: Receiving gimbal param value.");
+              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal param value.");
               /* Message decoding: PRIMITIVE
                *    mavlink_msg_param_value_decode(const mavlink_message_t* msg, mavlink_param_value_t* param_value)
                */
@@ -266,9 +272,10 @@ namespace gimbal
               /* Message decoding: PRIMITIVE
                *    mavlink_msg_attitude_decode(const mavlink_message_t* msg, mavlink_attitude_t* attitude)
                */
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: Receiving gimbal attitude.");
+              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal attitude.");
               mavlink_attitude_t attitude;
               mavlink_msg_attitude_decode(&msg, &attitude);
+              process_attitude_msg(attitude);
             }
             break;
 
@@ -276,13 +283,23 @@ namespace gimbal
               break;
           }
         }
+
+        if (status.parse_state != MAVLINK_PARSE_STATE_IDLE && status.parse_state != MAVLINK_PARSE_STATE_UNINIT)
+          m_valid_chars_received++;
+        const double valid_perc = 100.0*m_valid_chars_received/m_chars_received;
+        ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received " << m_valid_chars_received << "/" << m_chars_received << " valid characters so far (" << valid_perc << "%).");
       }
     }
     //}
 
+    void process_attitude_msg(const mavlink_attitude_t& attitude)
+    {
+    }
+
     ros::NodeHandle m_nh;
-    ros::Timer m_sending_timer;
-    ros::Timer m_receiving_timer;
+    ros::Timer m_tim_sending;
+    ros::Timer m_tim_receiving;
+    ros::Publisher m_pub_attitude;
 
     serial_port::SerialPort serial_port_;
 
@@ -304,6 +321,8 @@ namespace gimbal
 
     int m_hbs_since_last_request = 0;
     int m_hbs_request_period = 5;
+    size_t m_chars_received = 0;
+    size_t m_valid_chars_received = 0;
   };
 
   //}

@@ -3,7 +3,7 @@
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
   <arg name="portname" default="/dev/gimbal" />
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
-  <arg name="baudrate" default="115200" /> 
+  <arg name="baudrate" default="230400" /> 
 
   <!-- will it run using GNU debugger? -->
   <arg name="DEBUG" default="false" />
@@ -22,7 +22,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the nodelet -->
-    <node pkg="nodelet" type="nodelet" name="serial" args="$(arg nodelet) gimbal/Gimbal $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+    <node pkg="nodelet" type="nodelet" name="gimbal_driver" args="$(arg nodelet) gimbal/Gimbal $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 

@@ -1,5 +1,3 @@
-#include <string>
-
 #include "serial_port.h"
 
 namespace serial_port
