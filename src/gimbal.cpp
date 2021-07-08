@@ -1,5 +1,6 @@
 /* Original code copied from MAVLInk_DroneLights by Juan Pedro López */
 
+#include <boost/smart_ptr/make_shared_object.hpp>
 #include <limits>
 #include <ros/package.h>
 #include <ros/ros.h>
@@ -13,6 +14,8 @@
 #include <pluginlib/class_list_macros.h>
 #include <mrs_lib/param_loader.h>
 
+#include "Eigen/src/Geometry/AngleAxis.h"
+#include "Eigen/src/Geometry/Quaternion.h"
 #include "mavlink/mavlink.h"
 
 namespace gimbal
@@ -22,6 +25,30 @@ namespace gimbal
 
   class Gimbal : public nodelet::Nodelet
   {
+  private:
+    enum class euler_order_t
+    {
+      pitch_roll_yaw = 0,
+      roll_pitch_yaw = 1,
+    };
+
+    // https://mavlink.io/en/messages/common.html
+
+    enum MAV_CMD
+    {
+      MAV_CMD_DO_MOUNT_CONTROL = 205,  //< Mission command to control a camera or antenna mount
+    };
+
+    enum MAV_MOUNT_MODE
+    {
+      MAV_MOUNT_MODE_RETRACT = 0,            //<	Load and keep safe position (Roll,Pitch,Yaw) from permant memory and stop stabilization
+      MAV_MOUNT_MODE_NEUTRAL = 1,            //<	Load and keep neutral position (Roll,Pitch,Yaw) from permanent memory.
+      MAV_MOUNT_MODE_MAVLINK_TARGETING = 2,  //<	Load neutral position and start MAVLink Roll,Pitch,Yaw control with stabilization
+      MAV_MOUNT_MODE_RC_TARGETING = 3,       //<	Load neutral position and start RC Roll,Pitch,Yaw control with stabilization
+      MAV_MOUNT_MODE_GPS_POINT = 4,          //<	Load neutral position and start to point to Lat,Lon,Alt
+      MAV_MOUNT_MODE_SYSID_TARGET = 5,       //<	Gimbal tracks system with specified system ID
+      MAV_MOUNT_MODE_HOME_LOCATION = 6,      //<	Gimbal tracks home location
+    };
 
   public:
     /* onInit() //{ */
@@ -74,8 +101,7 @@ namespace gimbal
         m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
         m_tim_receiving = m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
         m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("gimbal_attitude", 10);
-      }
-      else
+      } else
       {
         ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
         ros::shutdown();
@@ -85,7 +111,6 @@ namespace gimbal
     //}
 
   private:
-
     /* connect() //{ */
 
     bool connect(void)
@@ -96,8 +121,7 @@ namespace gimbal
       {
         ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
         m_is_connected = false;
-      }
-      else
+      } else
       {
         ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
         m_is_connected = true;
@@ -111,26 +135,7 @@ namespace gimbal
     /* sending_loop() //{ */
     void sending_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
-      // Define the system type and some other magic MAVLink constants
-      constexpr uint8_t type = MAV_TYPE_QUADROTOR;              ///< This system is a quadrotor (it's maybe not but it doesn't matter)
-      constexpr uint8_t autopilot_type = MAV_AUTOPILOT_INVALID; ///< don't even know why this
-      constexpr uint8_t system_mode = MAV_MODE_PREFLIGHT;       ///< Booting up
-      constexpr uint32_t custom_mode = 0;                       ///< Custom mode, can be defined by user/adopter
-      constexpr uint8_t system_state = MAV_STATE_STANDBY;       ///< System ready for flight
-
-      // Initialize the required buffers
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      // Pack the message
-      mavlink_msg_heartbeat_pack(m_driver_system_id, m_driver_component_id, &msg, type, autopilot_type, system_mode, custom_mode, system_state);
-
-      // Copy the message to the send buffer
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-
-      // send the heartbeat message
-      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending heartbeat.");
-      serial_port_.sendCharArray(buf, len);
+      send_heartbeat();
 
       // request data from the gimbal every N heartbeats
       // to make sure the gimbal hears it and not to
@@ -142,6 +147,13 @@ namespace gimbal
         if (success)
           m_hbs_since_last_request = 0;
       }
+
+      static float pitch = 0;
+      static float roll = 0;
+      static float yaw = 0;
+      pitch = (float)std::fmod(pitch + 0.1, 0.3);
+      yaw = (float)std::fmod(yaw + 0.1, 0.3);
+      command_mount(pitch, roll, yaw);
     }
     //}
 
@@ -212,7 +224,8 @@ namespace gimbal
 
         const bool start = true;
         ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message stream #%u at rate %uHz", request_stream_id, request_stream_rate);
-        mavlink_msg_request_data_stream_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, request_stream_id, request_stream_rate, start);
+        mavlink_msg_request_data_stream_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, request_stream_id,
+                                             request_stream_rate, start);
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
         success = success && serial_port_.sendCharArray(buf, len);
       }
@@ -220,6 +233,62 @@ namespace gimbal
       // TODO: Request the value of the "EULER_ORDER" parameter to know in what format does the attitude arrive
       /* mavlink_msg_param_value_get_param_id() */
       return success;
+    }
+    //}
+
+    /* send_heartbeat() method //{ */
+    bool send_heartbeat()
+    {
+      // Define the system type and some other magic MAVLink constants
+      constexpr uint8_t type = MAV_TYPE_QUADROTOR;               ///< This system is a quadrotor (it's maybe not but it doesn't matter)
+      constexpr uint8_t autopilot_type = MAV_AUTOPILOT_INVALID;  ///< don't even know why this
+      constexpr uint8_t system_mode = MAV_MODE_PREFLIGHT;        ///< Booting up
+      constexpr uint32_t custom_mode = 0;                        ///< Custom mode, can be defined by user/adopter
+      constexpr uint8_t system_state = MAV_STATE_STANDBY;        ///< System ready for flight
+
+      // Initialize the required buffers
+      mavlink_message_t msg;
+      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+      // Pack the message
+      mavlink_msg_heartbeat_pack(m_driver_system_id, m_driver_component_id, &msg, type, autopilot_type, system_mode, custom_mode, system_state);
+
+      // Copy the message to the send buffer
+      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+
+      // send the heartbeat message
+      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending heartbeat.");
+      return serial_port_.sendCharArray(buf, len);
+    }
+    //}
+
+    /* command_mount() method //{ */
+    bool command_mount(const float pitch, const float roll, const float yaw)
+    {
+      mavlink_message_t msg;
+      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+      /* uint16_t mavlink_msg_command_long_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
+      /*                                uint8_t target_system, uint8_t target_component, uint16_t command, uint8_t confirmation, float param1, float param2,
+       * float param3, float param4, float param5, float param6, float param7) */
+
+      // MAV_CMD_DO_MOUNT_CONTROL command parameters:
+      /* 1: Pitch	      pitch depending on mount mode (degrees or degrees/second depending on pitch input). */
+      /* 2: Roll	      roll depending on mount mode (degrees or degrees/second depending on roll input). */
+      /* 3: Yaw	        yaw depending on mount mode (degrees or degrees/second depending on yaw input). */
+      /* 4: Altitude	  altitude depending on mount mode.	(m) */
+      /* 5: Latitude	  latitude, set if appropriate mount mode. */
+      /* 6: Longitude	  longitude, set if appropriate mount mode. */
+      /* 7: Mode	      Mount mode.	(MAV_MOUNT_MODE) */
+      mavlink_msg_command_long_pack(m_driver_system_id, m_driver_component_id, &msg,
+                                    // tgt. system id,  tgt. component id,      command id,               confirmation
+                                    m_gimbal_system_id, m_gimbal_component_id,  MAV_CMD_DO_MOUNT_CONTROL, 0,
+                                    // command parameters
+                                    pitch, roll, yaw, 0, 0, 0, MAV_MOUNT_MODE_MAVLINK_TARGETING);
+      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+
+      // send the heartbeat message
+      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command.");
+      return serial_port_.sendCharArray(buf, len);
     }
     //}
 
@@ -286,15 +355,43 @@ namespace gimbal
 
         if (status.parse_state != MAVLINK_PARSE_STATE_IDLE && status.parse_state != MAVLINK_PARSE_STATE_UNINIT)
           m_valid_chars_received++;
-        const double valid_perc = 100.0*m_valid_chars_received/m_chars_received;
-        ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received " << m_valid_chars_received << "/" << m_chars_received << " valid characters so far (" << valid_perc << "%).");
+        const double valid_perc = 100.0 * m_valid_chars_received / m_chars_received;
+        ROS_INFO_STREAM_THROTTLE(
+            2.0, "[Gimbal]: Received " << m_valid_chars_received << "/" << m_chars_received << " valid characters so far (" << valid_perc << "%).");
       }
     }
     //}
 
-    void process_attitude_msg(const mavlink_attitude_t& attitude)
+    /* process_attitude_msg() method //{ */
+    void process_attitude_msg(const mavlink_attitude_t& attitude, const euler_order_t& euler_order = euler_order_t::pitch_roll_yaw)
     {
+      using quat_t = Eigen::Quaterniond;
+      using anax_t = Eigen::AngleAxisd;
+      using vec3_t = Eigen::Vector3d;
+
+      quat_t q;
+      switch (euler_order)
+      {
+        case euler_order_t::roll_pitch_yaw:
+          q = anax_t(attitude.roll, vec3_t::UnitX()) * anax_t(attitude.pitch, vec3_t::UnitY()) * anax_t(attitude.yaw, vec3_t::UnitZ());
+          break;
+        case euler_order_t::pitch_roll_yaw:
+        default:
+          q = anax_t(attitude.pitch, vec3_t::UnitY()) * anax_t(attitude.roll, vec3_t::UnitX()) * anax_t(attitude.yaw, vec3_t::UnitZ());
+          break;
+      }
+
+      nav_msgs::OdometryPtr msg = boost::make_shared<nav_msgs::Odometry>();
+      msg->header.frame_id = "gimbal";
+      msg->header.stamp = ros::Time::now();
+      msg->child_frame_id = "gimbal/camera";
+      msg->pose.pose.orientation.x = q.x();
+      msg->pose.pose.orientation.y = q.y();
+      msg->pose.pose.orientation.z = q.z();
+      msg->pose.pose.orientation.w = q.w();
+      m_pub_attitude.publish(msg);
     }
+    //}
 
     ros::NodeHandle m_nh;
     ros::Timer m_tim_sending;
