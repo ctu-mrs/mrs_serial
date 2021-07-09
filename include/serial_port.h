@@ -1,6 +1,7 @@
 #ifndef SERIAL_PORT_H_
 #define SERIAL_PORT_H_
 
+#include <mutex>
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <stdio.h>    // Standard input/output definitions
@@ -25,17 +26,46 @@ namespace serial_port
     bool connect(const std::string port, int baudrate);
     void disconnect();
 
-    bool sendChar(const char c);
-    bool sendCharArray(uint8_t* buffer, int len);
+    virtual bool sendChar(const char c);
+    virtual bool sendCharArray(uint8_t* buffer, int len);
 
     void setBlocking(int fd, int should_block);
 
     bool checkConnected();
 
-    bool readChar(uint8_t* c);
-    int readSerial(uint8_t* arr, int arr_max_size);
+    virtual bool readChar(uint8_t* c);
+    virtual int readSerial(uint8_t* arr, int arr_max_size);
 
     int serial_port_fd_;
+  };
+
+  class SerialPortThreadsafe : public SerialPort
+  {
+  public:
+    virtual bool sendChar(const char c) override
+    {
+      std::scoped_lock lck(mtx_);
+      return SerialPort::sendChar(c);
+    };
+    virtual bool sendCharArray(uint8_t* buffer, int len) override
+    {
+      std::scoped_lock lck(mtx_);
+      return SerialPort::sendCharArray(buffer, len);
+    };
+
+    virtual bool readChar(uint8_t* c) override
+    {
+      std::scoped_lock lck(mtx_);
+      return SerialPort::readChar(c);
+    };
+    virtual int readSerial(uint8_t* arr, int arr_max_size) override
+    {
+      std::scoped_lock lck(mtx_);
+      return SerialPort::readSerial(arr, arr_max_size);
+    };
+
+  private:
+    std::mutex mtx_;
   };
 
 }  // namespace serial_port

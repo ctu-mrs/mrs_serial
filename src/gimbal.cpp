@@ -198,10 +198,14 @@ namespace gimbal
       {
         m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
         m_tim_receiving = m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
-        m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("gimbal_attitude", 10);
-        m_pub_command = m_nh.advertise<nav_msgs::Odometry>("gimbal_command_dbg", 10);
+
+        m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
+        m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
+
+        m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
         m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
+
         m_transformer = mrs_lib::Transformer("Gimbal", m_uav_name);
       } else
       {
@@ -438,6 +442,28 @@ namespace gimbal
     }
     //}
 
+    /* send_attitude() method //{ */
+    bool send_attitude(const float roll, const float pitch, const float yaw, const float rollspeed, const float pitchspeed, const float yawspeed)
+    {
+      // Initialize the required buffers
+      mavlink_message_t msg;
+      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+      /* uint16_t mavlink_msg_attitude_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
+      /*                                uint32_t time_boot_ms, float roll, float pitch, float yaw, float rollspeed, float pitchspeed, float yawspeed) */
+      // Pack the message
+      const uint32_t time_boot_ms = (ros::Time::now() - m_start_time).toSec()*1000;
+      mavlink_msg_attitude_pack(m_driver_system_id, m_driver_component_id, &msg, time_boot_ms, 0, 0, 0, 0, 0, 0);
+
+      // Copy the message to the send buffer
+      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+
+      // send the heartbeat message
+      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending attitude.");
+      return m_serial_port.sendCharArray(buf, len);
+    }
+    //}
+
     /* configure_mount() method //{ */
     bool configure_mount(const mount_config_t& mount_config)
     {
@@ -471,6 +497,29 @@ namespace gimbal
                         mount_config.stabilize_roll, mount_config.stabilize_pitch, mount_config.stabilize_yaw, (int)mount_config.roll_input_mode,
                         (int)mount_config.pitch_input_mode, (int)mount_config.yaw_input_mode);
       return m_serial_port.sendCharArray(buf, len);
+    }
+    //}
+
+    /* attitude_cbk() method //{ */
+    void attitude_cbk(nav_msgs::Odometry::ConstPtr odometry_in)
+    {
+      const geometry_msgs::Quaternion orientation_quat = odometry_in->pose.pose.orientation;
+      const mat3_t rot_mat(quat_t(orientation_quat.w, orientation_quat.x, orientation_quat.y, orientation_quat.z));
+      constexpr int ROLL_IDX = 0;
+      constexpr int PITCH_IDX = 1;
+      constexpr int YAW_IDX = 2;
+      // TODO: fix...
+      /* const vec3_t PRY_angles = rot_mat.eulerAngles(YAW_IDX, PITCH_IDX, ROLL_IDX); */
+      const vec3_t PRY_angles = rot_mat.eulerAngles(ROLL_IDX, YAW_IDX, PITCH_IDX);
+      const float pitch = static_cast<float>(PRY_angles.x());
+      const float roll = static_cast<float>(PRY_angles.y());
+      const float yaw = static_cast<float>(PRY_angles.z());
+
+      const float pitchspeed = odometry_in->twist.twist.angular.y;
+      const float rollspeed = odometry_in->twist.twist.angular.x;
+      const float yawspeed = odometry_in->twist.twist.angular.z;
+
+      send_attitude(pitch, roll, yaw, pitchspeed, rollspeed, yawspeed);
     }
     //}
 
@@ -723,14 +772,18 @@ namespace gimbal
     ros::NodeHandle m_nh;
     ros::Timer m_tim_sending;
     ros::Timer m_tim_receiving;
+
+    ros::Subscriber m_sub_attitude;
     ros::Subscriber m_sub_command;
     ros::Subscriber m_sub_pry;
+
     ros::Publisher m_pub_attitude;
     ros::Publisher m_pub_command;
+
     tf2_ros::TransformBroadcaster m_pub_transform;
 
     mrs_lib::Transformer m_transformer;
-    serial_port::SerialPort m_serial_port;
+    serial_port::SerialPortThreadsafe m_serial_port;
 
     // --------------------------------------------------------------
     // |                 Parameters, loaded from ROS                |
@@ -755,6 +808,7 @@ namespace gimbal
     // --------------------------------------------------------------
     // |                   Other member variables                   |
     // --------------------------------------------------------------
+    const ros::Time m_start_time = ros::Time::now();
     ros::Time m_last_sent_time = ros::Time::now();
     bool m_is_connected = false;
 
