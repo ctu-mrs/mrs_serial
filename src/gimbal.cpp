@@ -139,6 +139,9 @@ namespace gimbal
 
     //}
 
+    template <typename T>
+    T rad2deg(const T x) {return x/M_PI*180;}
+
   public:
     /* onInit() //{ */
 
@@ -453,13 +456,39 @@ namespace gimbal
       /*                                uint32_t time_boot_ms, float roll, float pitch, float yaw, float rollspeed, float pitchspeed, float yawspeed) */
       // Pack the message
       const uint32_t time_boot_ms = (ros::Time::now() - m_start_time).toSec()*1000;
-      mavlink_msg_attitude_pack(m_driver_system_id, m_driver_component_id, &msg, time_boot_ms, 0, 0, 0, 0, 0, 0);
+      mavlink_msg_attitude_pack(m_driver_system_id, m_driver_component_id, &msg, time_boot_ms, roll, pitch, yaw, rollspeed, pitchspeed, yawspeed);
 
       // Copy the message to the send buffer
       const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
 
       // send the heartbeat message
-      ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending attitude.");
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending attitude RPY: [%.0f, %.0f, %.0f]deg, RPY vels: [%.0f, %.0f, %.0f]deg/s.", rad2deg(roll), rad2deg(pitch), rad2deg(yaw), rad2deg(rollspeed), rad2deg(pitchspeed), rad2deg(yawspeed));
+      return m_serial_port.sendCharArray(buf, len);
+    }
+    //}
+
+    /* send_global_position_int() method //{ */
+    bool send_global_position_int()
+    {
+      // Initialize the required buffers
+      mavlink_message_t msg;
+      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+      /* uint16_t mavlink_msg_global_position_int_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
+      /*                                uint32_t time_boot_ms, int32_t lat, int32_t lon, int32_t alt, int32_t relative_alt, int16_t vx, int16_t vy, int16_t vz, uint16_t hdg) */
+      // Pack the message
+      const uint32_t time_boot_ms = (ros::Time::now() - m_start_time).toSec()*1000;
+      mavlink_msg_global_position_int_pack(m_driver_system_id, m_driver_component_id, &msg,
+          time_boot_ms,
+          0, 0, 0, 0,
+          0, 0, 0,
+          0);
+
+      // Copy the message to the send buffer
+      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+
+      // send the heartbeat message
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending global position int (all zeros)");
       return m_serial_port.sendCharArray(buf, len);
     }
     //}
@@ -520,6 +549,7 @@ namespace gimbal
       const float yawspeed = odometry_in->twist.twist.angular.z;
 
       send_attitude(pitch, roll, yaw, pitchspeed, rollspeed, yawspeed);
+      send_global_position_int();
     }
     //}
 
