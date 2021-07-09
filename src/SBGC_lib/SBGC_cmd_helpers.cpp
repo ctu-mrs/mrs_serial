@@ -244,6 +244,8 @@ uint8_t SBGC_cmd_realtime_data_unpack(SBGC_cmd_realtime_data_t &p, SerialCommand
 */
 uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p, const uint32_t data_ordered_flags, SerialCommand &cmd)
 {
+  p.timestamp_mp = cmd.readWord();
+
   if (data_ordered_flags & cmd_realtime_data_custom_flags_target_angles)
     cmd.readWordArr(p.target_angles, 3);
   
@@ -256,9 +258,9 @@ uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p,
   if (data_ordered_flags & cmd_realtime_data_custom_flags_z_vector_h_vector)
   {
     for (int i = 0; i < 3; i++)
-      cmd.readBuf(&p.z_vector[i], 4);
+      p.z_vector[i] = cmd.readFloat();
     for (int i = 0; i < 3; i++)
-      cmd.readBuf(&p.h_vector[i], 4);
+      p.h_vector[i] = cmd.readFloat();
   }
 
   if (data_ordered_flags & cmd_realtime_data_custom_flags_encoder_raw24)
@@ -267,7 +269,17 @@ uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p,
       cmd.readBuf(&p.encoder_raw24[i], 3);
   }
 
-  if (cmd.getBytesAvailable() > 0 && cmd.getBytesAvailable() < 8) return 0;
+/* #include <iostream> */
+/* #include <iomanip> */
+/*   for (int i = 0; i < cmd.len; i++) */
+/*       std::cout << std::dec << std::setfill(' ') << std::setw(2) << i << " "; */
+/*   std::cout << "\n"; */
+
+/*   for (int i = 0; i < cmd.len; i++) */
+/*       std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(cmd.data[i]) << " "; */
+/*   std::cout << "\n"; */
+
+  if (cmd.checkLimit()) return 0;
   else return PARSER_ERROR_WRONG_DATA_SIZE;
 }
 

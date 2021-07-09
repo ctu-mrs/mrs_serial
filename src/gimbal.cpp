@@ -545,7 +545,7 @@ namespace gimbal
         {
           case SBGC_CMD_REALTIME_DATA_CUSTOM:
             {
-              SBGC_cmd_realtime_data_custom_t msg;
+              SBGC_cmd_realtime_data_custom_t msg = {0};
               if (SBGC_cmd_realtime_data_custom_unpack(msg, m_request_data_flags, cmd) == 0)
               {
                 ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received realtime custom data.");
@@ -617,16 +617,24 @@ namespace gimbal
     /* process_custom_data_msg() method //{ */
     void process_custom_data_msg(const SBGC_cmd_realtime_data_custom_t& data)
     {
-      const vec3_t z_vector(data.z_vector[0], data.z_vector[1], data.z_vector[2]);
-      const vec3_t h_vector(data.h_vector[0], data.h_vector[1], data.h_vector[2]);
-      const vec3_t a_vector = h_vector.cross(z_vector);
-      std::cout << "z_vector: [" << z_vector.transpose() << "]\n";
-      std::cout << "h_vector: [" << h_vector.transpose() << "]\n";
-      std::cout << "a_vector: [" << a_vector.transpose() << "]\n";
+      const vec3_t z_vector = vec3_t(data.z_vector[0], data.z_vector[1], data.z_vector[2]).normalized();
+      const vec3_t h_vector = vec3_t(data.h_vector[0], data.h_vector[1], data.h_vector[2]).normalized();
+      const vec3_t a_vector = z_vector.cross(h_vector);
+      std::cout << "z_vector: [" << z_vector.transpose() << "]\tnorm: " << z_vector.norm() << "\n";
+      std::cout << "h_vector: [" << h_vector.transpose() << "]\tnorm: " << h_vector.norm() << "\n";
+      std::cout << "a_vector: [" << a_vector.transpose() << "]\tnorm: " << a_vector.norm() << "\n";
       mat3_t rot_mat;
       rot_mat.row(0) = h_vector;
       rot_mat.row(1) = a_vector;
       rot_mat.row(2) = z_vector;
+
+      /* rot_mat.row(0) = h_vector; */
+      /* rot_mat.row(1) = a_vector; */
+      /* rot_mat.row(2) = z_vector; */
+      /* const vec3_t tmp_col = rot_mat.col(0); */
+      /* rot_mat.col(0) = rot_mat.col(1); */
+      /* rot_mat.col(1) = tmp_col; */
+      std::cout << "rot_mat det: " << rot_mat.determinant() << "\n";
       const quat_t q(rot_mat);
 
       nav_msgs::OdometryPtr msg = boost::make_shared<nav_msgs::Odometry>();

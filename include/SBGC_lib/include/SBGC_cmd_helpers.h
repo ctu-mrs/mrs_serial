@@ -212,14 +212,14 @@ typedef struct {
   int16_t stator_rotor_angle[3];
   int16_t gyro_data[3];
   int16_t rc_data[6];
-  double z_vector[3];
-  double h_vector[3];
+  float z_vector[3];
+  float h_vector[3];
   int16_t rc_channels[18];
   int16_t acc_data[3];
   uint8_t ahrs_debug_info[16];
   uint8_t motor4_control[8];
   uint32_t encoder_raw24[3];
-  double imu_angles_rad[3];
+  float imu_angles_rad[3];
 } SBGC_cmd_realtime_data_custom_t;
 
 uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p, const uint32_t data_ordered_flags, SerialCommand &cmd);
