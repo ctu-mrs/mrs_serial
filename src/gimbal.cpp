@@ -19,6 +19,7 @@
 
 #include <mrs_msgs/GimbalPRY.h>
 #include "mavlink/mavlink.h"
+#include "SBGC_lib/SBGC.h"
 #include "serial_port.h"
 
 namespace gimbal
@@ -210,6 +211,7 @@ namespace gimbal
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
 
         m_transformer = mrs_lib::Transformer("Gimbal", m_uav_name);
+        sbgc_parser.init(&m_serial_port);
       } else
       {
         ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
@@ -241,47 +243,39 @@ namespace gimbal
 
     //}
 
+    SBGC_Parser sbgc_parser;
     /* sending_loop() //{ */
     void sending_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
-      send_heartbeat();
+      SBGC_cmd_control_t c = { 0, 0, 0, 0, 0, 0, 0 };
 
-      // request data from the gimbal every N heartbeats
-      // to make sure the gimbal hears it and not to
-      // overwhelm the serial line at the same time
-      m_hbs_since_last_request++;
-      if (m_hbs_since_last_request >= m_hbs_request_period)
-      {
-        const bool success = request_data(m_stream_request_ids, m_stream_request_rates);
-        if (success)
-          m_hbs_since_last_request = 0;
-      }
 
-      // configure the gimbal every N heartbeats
-      // to make sure the gimbal hears it and not to
-      // overwhelm the serial line at the same time
-      m_hbs_since_last_configure++;
-      if (m_hbs_since_last_configure >= m_hbs_configure_period)
-      {
-        const bool success = configure_mount(m_mount_config);
-        if (success)
-          m_hbs_since_last_configure = 0;
-      }
+      // Move camera to initial position (all angles are zero)
+      // Set speed 30 degree/sec
+      c.mode = SBGC_CONTROL_MODE_ANGLE;
+      c.speedROLL = c.speedPITCH = c.speedYAW = 30 * SBGC_SPEED_SCALE;
+      SBGC_cmd_control_send(c, sbgc_parser);
+      ros::Duration(0.5).sleep();
 
-      // request the euler order every N heartbeats
-      // to make sure the gimbal hears it and not to
-      // overwhelm the serial line at the same time
-      m_hbs_since_last_param_request++;
-      if (m_hbs_since_last_param_request >= m_hbs_param_request_period)
-      {
-        const bool success = request_parameter_list();
-        /* const bool success = request_parameter(EULER_ORDER_PARAM_ID); */
-        if (success)
-          m_hbs_since_last_param_request = 0;
-      }
+      /////////////////// Demo 1. PITCH and YAW gimbal by 40 and 30 degrees both sides and return back.
+      // Actual speed depends on PID setting.
+      // Whait 5 sec to finish
+      c.mode = SBGC_CONTROL_MODE_ANGLE;
+      c.anglePITCH = SBGC_DEGREE_TO_ANGLE(40);
+      c.angleYAW = SBGC_DEGREE_TO_ANGLE(30);
+      SBGC_cmd_control_send(c, sbgc_parser);
+      ros::Duration(0.5).sleep();
 
-      const uint32_t desired_euler_order = static_cast<uint32_t>(euler_order_t::pitchmotor_roll_yawmotor);
-      set_parameter(EULER_ORDER_PARAM_ID, *((float*)(&desired_euler_order)), 5);
+      c.anglePITCH = SBGC_DEGREE_TO_ANGLE(-40);
+      c.angleYAW = SBGC_DEGREE_TO_ANGLE(-30);
+      SBGC_cmd_control_send(c, sbgc_parser);
+      ros::Duration(0.5).sleep();
+
+      // .. and back
+      c.anglePITCH = 0;
+      c.angleYAW = 0;
+      SBGC_cmd_control_send(c, sbgc_parser);
+      ros::Duration(0.5).sleep();
     }
     //}
 
@@ -635,68 +629,17 @@ namespace gimbal
     /* receiving_loop() method //{ */
     void receiving_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
-      mavlink_message_t msg;
-      mavlink_status_t status;
-
-      uint8_t c;
-      while (m_serial_port.readChar(&c))
+      while (sbgc_parser.read_cmd())
       {
+        const auto cmd = sbgc_parser.in_cmd;
         m_chars_received++;
-        // Try to get a new message
-        if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status))
+        switch (cmd.id)
         {
-          // Handle message
-          switch (msg.msgid)
-          {
-            case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal heartbeat.");
-            }
+          default:
             break;
-
-            case MAVLINK_MSG_ID_SYS_STATUS:  // #1: SYS_STATUS
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal status.");
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_sys_status_decode(const mavlink_message_t* msg, mavlink_sys_status_t* sys_status)
-               */
-              mavlink_sys_status_t sys_status;
-              mavlink_msg_sys_status_decode(&msg, &sys_status);
-            }
-            break;
-
-            case MAVLINK_MSG_ID_PARAM_VALUE:  // #22: PARAM_VALUE
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal param value.");
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_param_value_decode(const mavlink_message_t* msg, mavlink_param_value_t* param_value)
-               */
-              mavlink_param_value_t param_value;
-              mavlink_msg_param_value_decode(&msg, &param_value);
-              process_param_value_msg(param_value);
-            }
-            break;
-
-            case MAVLINK_MSG_ID_ATTITUDE:  // #30
-            {
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_attitude_decode(const mavlink_message_t* msg, mavlink_attitude_t* attitude)
-               */
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal attitude.");
-              mavlink_attitude_t attitude;
-              mavlink_msg_attitude_decode(&msg, &attitude);
-              process_attitude_msg(attitude, m_euler_ordering);
-            }
-            break;
-
-            default:
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving unhandled message #%u, ignoring.", msg.msgid);
-              break;
-          }
         }
 
-        if (status.parse_error == 0)
-          m_valid_chars_received++;
+        m_valid_chars_received = m_chars_received - sbgc_parser.get_parse_error_count();
         const double valid_perc = 100.0 * m_valid_chars_received / m_chars_received;
         ROS_INFO_STREAM_THROTTLE(
             2.0, "[Gimbal]: Received " << m_valid_chars_received << "/" << m_chars_received << " valid characters so far (" << valid_perc << "%).");
@@ -813,7 +756,7 @@ namespace gimbal
     tf2_ros::TransformBroadcaster m_pub_transform;
 
     mrs_lib::Transformer m_transformer;
-    serial_port::SerialPortThreadsafe m_serial_port;
+    serial_port::SerialPort m_serial_port;
 
     // --------------------------------------------------------------
     // |                 Parameters, loaded from ROS                |

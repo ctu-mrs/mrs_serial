@@ -44,7 +44,7 @@ target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
 
-add_library(Gimbal src/gimbal.cpp src/serial_port.cpp)
+add_library(Gimbal src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp)
 target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
