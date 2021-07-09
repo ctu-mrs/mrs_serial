@@ -164,7 +164,65 @@ typedef struct {
 
 uint8_t SBGC_cmd_realtime_data_unpack(SBGC_cmd_realtime_data_t &p, SerialCommand &cmd);
 
+// CMD_DATA_STREAM_INTERVAL
+typedef struct {
+  uint8_t cmd_id;
+  uint16_t interval;
 
+  union
+  {
+    struct
+    {
+      uint32_t flags;
+    } cmd_realtime_data_custom;
+
+    struct
+    {
+      uint8_t imu_type;
+    } cmd_ahrs_helper;
+
+    struct
+    {
+      uint8_t event_id;
+      uint8_t event_type;
+    } cmd_event;
+
+    uint8_t data[8];
+  } config;
+
+  uint8_t sync_to_data;
+  uint8_t reserved[9];
+} SBGC_cmd_data_stream_interval_t;
+
+void SBGC_cmd_data_stream_interval_pack(const SBGC_cmd_data_stream_interval_t& realtime_data, SerialCommand &cmd);
+uint8_t SBGC_cmd_data_stream_interval_unpack(SBGC_cmd_data_stream_interval_t& realtime_data, SerialCommand &cmd);
+inline uint8_t SBGC_cmd_data_stream_interval_send(const SBGC_cmd_data_stream_interval_t& realtime_data, SBGC_Parser &parser)
+{
+	SerialCommand cmd;
+	SBGC_cmd_data_stream_interval_pack(realtime_data, cmd);
+	return parser.send_cmd(cmd);
+}
+
+// CMD_REALTIME_DATA_CUSTOM
+typedef struct {
+  uint16_t timestamp_mp;
+  int16_t imu_angles[3];
+  int16_t target_angles[3];
+  int16_t target_speed[3];
+  int16_t stator_rotor_angle[3];
+  int16_t gyro_data[3];
+  int16_t rc_data[6];
+  double z_vector[3];
+  double h_vector[3];
+  int16_t rc_channels[18];
+  int16_t acc_data[3];
+  uint8_t ahrs_debug_info[16];
+  uint8_t motor4_control[8];
+  uint32_t encoder_raw24[3];
+  double imu_angles_rad[3];
+} SBGC_cmd_realtime_data_custom_t;
+
+uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p, const uint32_t data_ordered_flags, SerialCommand &cmd);
 
 inline uint8_t SBGC_cmd_execute_menu_send(uint8_t menu_action, SBGC_Parser &parser) {
 	SerialCommand cmd;
