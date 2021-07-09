@@ -30,6 +30,48 @@ void SBGC_cmd_control_pack(SBGC_cmd_control_t &p, SerialCommand &cmd) {
 
 
 /* Packs command structure to SerialCommand object */
+void SBGC_cmd_data_stream_interval_pack(const SBGC_cmd_data_stream_interval_t& p, SerialCommand &cmd)
+{
+	cmd.init(SBGC_CMD_DATA_STREAM_INTERVAL);
+	#ifdef SBGC_CMD_STRUCT_ALIGNED
+		memcpy(cmd.data, &p, sizeof(p));
+		cmd.len = sizeof(p);
+	#else
+		cmd.writeByte(p.cmd_id);
+		cmd.writeWord(p.interval);
+    cmd.writeBuf(p.config.data, 8);
+    cmd.writeByte(p.sync_to_data);
+    cmd.writeBuf(p.reserved, 9);
+	#endif
+}
+
+/*
+* Unpacks SerialCommand object to command structure.
+* Returns 0 on success, PARSER_ERROR_XX code on fail.
+*/
+uint8_t SBGC_cmd_data_stream_interval_unpack(SBGC_cmd_data_stream_interval_t& p, SerialCommand &cmd)
+{
+	#ifdef SBGC_CMD_STRUCT_ALIGNED
+		if(cmd.len <= sizeof(p)) {
+			memcpy(&p, cmd.data, cmd.len);
+			return 0;
+		} else {
+			return PARSER_ERROR_WRONG_DATA_SIZE;
+		}
+	#else
+    p.cmd_id = cmd.readByte();
+    p.interval = cmd.readWord();
+    cmd.readBuf(p.config.data, 8);
+    p.sync_to_data = cmd.readByte();
+    cmd.readBuf(p.reserved, 9);
+
+		if(cmd.checkLimit()) return 0;
+		else return PARSER_ERROR_WRONG_DATA_SIZE;
+	#endif
+}
+
+
+/* Packs command structure to SerialCommand object */
 void SBGC_cmd_control_ext_pack(SBGC_cmd_control_ext_t &p, SerialCommand &cmd) {
 	cmd.init(SBGC_CMD_CONTROL);
 	#ifdef SBGC_CMD_STRUCT_ALIGNED
@@ -194,4 +236,38 @@ uint8_t SBGC_cmd_realtime_data_unpack(SBGC_cmd_realtime_data_t &p, SerialCommand
 	#endif
 }
 
+
+
+/*
+* Unpacks SerialCommand object to command structure.
+* Returns 0 on success, PARSER_ERROR_XX code on fail.
+*/
+uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p, const uint32_t data_ordered_flags, SerialCommand &cmd)
+{
+  if (data_ordered_flags & cmd_realtime_data_custom_flags_target_angles)
+    cmd.readWordArr(p.target_angles, 3);
+  
+  if (data_ordered_flags & cmd_realtime_data_custom_flags_target_speed)
+    cmd.readWordArr(p.target_speed, 3);
+
+  if (data_ordered_flags & cmd_realtime_data_custom_flags_stator_rotor_angle)
+    cmd.readWordArr(p.stator_rotor_angle, 3);
+
+  if (data_ordered_flags & cmd_realtime_data_custom_flags_z_vector_h_vector)
+  {
+    for (int i = 0; i < 3; i++)
+      cmd.readBuf(&p.z_vector[i], 4);
+    for (int i = 0; i < 3; i++)
+      cmd.readBuf(&p.h_vector[i], 4);
+  }
+
+  if (data_ordered_flags & cmd_realtime_data_custom_flags_encoder_raw24)
+  {
+    for (int i = 0; i < 3; i++)
+      cmd.readBuf(&p.encoder_raw24[i], 3);
+  }
+
+  if (cmd.getBytesAvailable() > 0 && cmd.getBytesAvailable() < 8) return 0;
+  else return PARSER_ERROR_WRONG_DATA_SIZE;
+}
 

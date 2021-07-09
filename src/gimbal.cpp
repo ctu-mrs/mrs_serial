@@ -244,117 +244,25 @@ namespace gimbal
     //}
 
     SBGC_Parser sbgc_parser;
+    /* static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_target_angles | cmd_realtime_data_custom_flags_target_speed | cmd_realtime_data_custom_flags_stator_rotor_angle | cmd_realtime_data_custom_flags_encoder_raw24; */
+    static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_z_vector_h_vector;
     /* sending_loop() //{ */
     void sending_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
-      SBGC_cmd_control_t c = { 0, 0, 0, 0, 0, 0, 0 };
-
-
-      // Move camera to initial position (all angles are zero)
-      // Set speed 30 degree/sec
-      c.mode = SBGC_CONTROL_MODE_ANGLE;
-      c.speedROLL = c.speedPITCH = c.speedYAW = 30 * SBGC_SPEED_SCALE;
-      SBGC_cmd_control_send(c, sbgc_parser);
-      ros::Duration(0.5).sleep();
-
-      /////////////////// Demo 1. PITCH and YAW gimbal by 40 and 30 degrees both sides and return back.
-      // Actual speed depends on PID setting.
-      // Whait 5 sec to finish
-      c.mode = SBGC_CONTROL_MODE_ANGLE;
-      c.anglePITCH = SBGC_DEGREE_TO_ANGLE(40);
-      c.angleYAW = SBGC_DEGREE_TO_ANGLE(30);
-      SBGC_cmd_control_send(c, sbgc_parser);
-      ros::Duration(0.5).sleep();
-
-      c.anglePITCH = SBGC_DEGREE_TO_ANGLE(-40);
-      c.angleYAW = SBGC_DEGREE_TO_ANGLE(-30);
-      SBGC_cmd_control_send(c, sbgc_parser);
-      ros::Duration(0.5).sleep();
-
-      // .. and back
-      c.anglePITCH = 0;
-      c.angleYAW = 0;
-      SBGC_cmd_control_send(c, sbgc_parser);
-      ros::Duration(0.5).sleep();
+      request_data(m_request_data_flags);
     }
     //}
 
     /* request_data() method //{ */
-    bool request_data(const std::vector<int>& stream_request_ids, const std::vector<int>& stream_request_rates)
+    bool request_data(const uint32_t request_data_flags)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      // STREAMS that can be requested
-      /*
-       * Definitions are in common.h: enum MAV_DATA_STREAM
-       *
-       * MAV_DATA_STREAM_ALL=0,             * Enable all data streams
-       * MAV_DATA_STREAM_RAW_SENSORS=1,     * Enable IMU_RAW, GPS_RAW, GPS_STATUS packets.
-       * MAV_DATA_STREAM_EXTENDED_STATUS=2, * Enable GPS_STATUS, CONTROL_STATUS, AUX_STATUS
-       * MAV_DATA_STREAM_RC_CHANNELS=3,     * Enable RC_CHANNELS_SCALED, RC_CHANNELS_RAW, SERVO_OUTPUT_RAW
-       * MAV_DATA_STREAM_RAW_CONTROLLER=4,  * Enable ATTITUDE_CONTROLLER_OUTPUT, POSITION_CONTROLLER_OUTPUT, NAV_CONTROLLER_OUTPUT.
-       * MAV_DATA_STREAM_POSITION=6,        * Enable LOCAL_POSITION, GLOBAL_POSITION/GLOBAL_POSITION_INT messages.
-       * MAV_DATA_STREAM_EXTRA1=10,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_EXTRA2=11,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_EXTRA3=12,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_ENUM_END=13,
-       *
-       * Available data from the gimbal is:
-       * MAV_DATA_STREAM_RAW_SENSORS      (1)  - RAW_IMU
-       * MAV_DATA_STREAM_RC_CHANNELS      (3)  - RC_CHANNELS_SCALED
-       * MAV_DATA_STREAM_RAW_CONTROLLER   (4)  - ATTITUDE
-       * MAV_DATA_STREAM_EXTRA1           (10) - ATTITUDE
-       * MAV_DATA_STREAM_EXTRA2           (11) - ATTITUDE
-       */
-
-      // To be setup according to the needed information to be requested from the Pixhawk
-      /* const std::vector<std::tuple<uint8_t, uint16_t>> requests = { {MAV_DATA_STREAM_EXTRA1, 200} }; */
-      bool success = true;
-
-      for (int it = 0; it < stream_request_ids.size(); it++)
-      {
-        /*
-         * mavlink_msg_request_data_stream_pack(system_id, component_id,
-         *    &msg,
-         *    target_system, target_component,
-         *    MAV_DATA_STREAM_POSITION, 10000000, 1);
-         *
-         * mavlink_msg_request_data_stream_pack(uint8_t system_id, uint8_t component_id,
-         *    mavlink_message_t* msg,
-         *    uint8_t target_system, uint8_t target_component, uint8_t req_stream_id,
-         *    uint16_t req_message_rate, uint8_t start_stop)
-         *
-         */
-        const int request_stream_id_loaded = stream_request_ids.at(it);
-        if (request_stream_id_loaded > std::numeric_limits<uint8_t>::max())
-        {
-          ROS_ERROR("[Gimbal]: Cannot request stream ID larger than %u (got %d)!", std::numeric_limits<uint8_t>::max(), request_stream_id_loaded);
-          success = false;
-          continue;
-        }
-        const uint8_t request_stream_id = static_cast<uint8_t>(request_stream_id_loaded);
-
-        const int request_stream_rate_loaded = stream_request_rates.at(it);
-        if (request_stream_rate_loaded > std::numeric_limits<uint16_t>::max())
-        {
-          ROS_ERROR("[Gimbal]: Cannot request stream rate larger than %u (got %d)!", std::numeric_limits<uint16_t>::max(), request_stream_rate_loaded);
-          success = false;
-          continue;
-        }
-        const uint16_t request_stream_rate = static_cast<uint16_t>(request_stream_rate_loaded);
-
-        const bool start = true;
-        ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message stream #%u at rate %uHz", request_stream_id, request_stream_rate);
-        mavlink_msg_request_data_stream_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, request_stream_id,
-                                             request_stream_rate, start);
-        uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        success = success && m_serial_port.sendCharArray(buf, len);
-      }
-
-      // TODO: Request the value of the "EULER_ORDER" parameter to know in what format does the attitude arrive
-      /* mavlink_msg_param_value_get_param_id() */
-      return success;
+      SBGC_cmd_data_stream_interval_t c = { 0 };
+      ROS_INFO("[Gimbal]: Requesting data.");
+      c.cmd_id = SBGC_CMD_REALTIME_DATA_CUSTOM;
+      c.interval = 1;
+      c.config.cmd_realtime_data_custom.flags = request_data_flags;
+      c.sync_to_data = true;
+      return SBGC_cmd_data_stream_interval_send(c, sbgc_parser);
     }
     //}
 
@@ -631,11 +539,25 @@ namespace gimbal
     {
       while (sbgc_parser.read_cmd())
       {
-        const auto cmd = sbgc_parser.in_cmd;
+        SerialCommand cmd = sbgc_parser.in_cmd;
         m_chars_received++;
         switch (cmd.id)
         {
+          case SBGC_CMD_REALTIME_DATA_CUSTOM:
+            {
+              SBGC_cmd_realtime_data_custom_t msg;
+              if (SBGC_cmd_realtime_data_custom_unpack(msg, m_request_data_flags, cmd) == 0)
+              {
+                ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received realtime custom data.");
+                process_custom_data_msg(msg);
+              }
+              else
+              {
+                ROS_ERROR_THROTTLE(2.0, "[Gimbal]: Received realtime custom data, but failed to unpack (parsed %u/%u bytes)!", cmd.pos, cmd.len);
+              }
+            }
           default:
+            ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received command ID" << (int)cmd.id << ".");
             break;
         }
 
@@ -692,31 +614,20 @@ namespace gimbal
         return ( anax_t(yaw, vec3_t::UnitZ()) * anax_t(roll, -vec3_t::UnitX()) * anax_t(-pitch, vec3_t::UnitY()) );
     }
 
-    /* process_attitude_msg() method //{ */
-    void process_attitude_msg(const mavlink_attitude_t& attitude, const euler_order_t& euler_order)
+    /* process_custom_data_msg() method //{ */
+    void process_custom_data_msg(const SBGC_cmd_realtime_data_custom_t& data)
     {
-      // TODO: this is probably wrong, but works so far for "pitchmotor_roll_yawmotor"
-      // TODO: complete this for other euler angle orderings if necessary
-      quat_t q;
-      switch (euler_order)
-      {
-        case euler_order_t::roll_pitch_yaw:
-          q = rpy2quat(attitude.roll, attitude.pitch, attitude.yaw, true);
-          break;
-        case euler_order_t::pitchmotor_roll_yawmotor:
-          q = pry2quat(attitude.pitch, attitude.roll, attitude.yaw, false);
-          break;
-        case euler_order_t::roll_pitchmotor_yawmotor:
-          q = rpy2quat(attitude.roll, attitude.pitch, attitude.yaw, false);
-          break;
-        case euler_order_t::pitch_roll_yaw:
-          q = pry2quat(attitude.pitch, attitude.roll, attitude.yaw, true);
-          break;
-        case euler_order_t::unknown:
-        default:
-          ROS_ERROR_THROTTLE(1.0, "[Gimbal]: Unknown euler angle ordering, cannot process attitude.");
-          return;
-      }
+      const vec3_t z_vector(data.z_vector[0], data.z_vector[1], data.z_vector[2]);
+      const vec3_t h_vector(data.h_vector[0], data.h_vector[1], data.h_vector[2]);
+      const vec3_t a_vector = h_vector.cross(z_vector);
+      std::cout << "z_vector: [" << z_vector.transpose() << "]\n";
+      std::cout << "h_vector: [" << h_vector.transpose() << "]\n";
+      std::cout << "a_vector: [" << a_vector.transpose() << "]\n";
+      mat3_t rot_mat;
+      rot_mat.row(0) = h_vector;
+      rot_mat.row(1) = a_vector;
+      rot_mat.row(2) = z_vector;
+      const quat_t q(rot_mat);
 
       nav_msgs::OdometryPtr msg = boost::make_shared<nav_msgs::Odometry>();
       msg->header.frame_id = m_base_frame_id;
