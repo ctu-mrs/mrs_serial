@@ -617,24 +617,25 @@ namespace gimbal
     /* process_custom_data_msg() method //{ */
     void process_custom_data_msg(const SBGC_cmd_realtime_data_custom_t& data)
     {
-      const vec3_t z_vector = vec3_t(data.z_vector[0], data.z_vector[1], data.z_vector[2]).normalized();
-      const vec3_t h_vector = vec3_t(data.h_vector[0], data.h_vector[1], data.h_vector[2]).normalized();
-      const vec3_t a_vector = z_vector.cross(h_vector);
+      // | ------------ convert the data from END to NED ------------ |
+      // a vector pointing upwards (positive Z) in the gimbal frame, expressed in a static (inertial) coordinate frame
+      const vec3_t z_vector = vec3_t(-data.z_vector[1], data.z_vector[0], data.z_vector[2]).normalized();
+      // a vector pointing forwards (positive X) in the gimbal frame, expressed in a static (inertial) coordinate frame
+      const vec3_t x_vector = vec3_t(-data.h_vector[1], data.h_vector[0], data.h_vector[2]).normalized();
+      // a vector pointing left (positive Y) in the gimbal frame, expressed in a static (inertial) coordinate frame
+      const vec3_t y_vector = z_vector.cross(x_vector);
+      std::cout << "x_vector: [" << x_vector.transpose() << "]\tnorm: " << x_vector.norm() << "\n";
+      std::cout << "y_vector: [" << y_vector.transpose() << "]\tnorm: " << y_vector.norm() << "\n";
       std::cout << "z_vector: [" << z_vector.transpose() << "]\tnorm: " << z_vector.norm() << "\n";
-      std::cout << "h_vector: [" << h_vector.transpose() << "]\tnorm: " << h_vector.norm() << "\n";
-      std::cout << "a_vector: [" << a_vector.transpose() << "]\tnorm: " << a_vector.norm() << "\n";
       mat3_t rot_mat;
-      rot_mat.row(0) = h_vector;
-      rot_mat.row(1) = a_vector;
+      rot_mat.row(0) = x_vector;
+      rot_mat.row(1) = y_vector;
       rot_mat.row(2) = z_vector;
+      std::cout << "rot_mat   det: " << rot_mat.determinant() << "\n";
+      /* rot_mat.transposeInPlace(); */
+      /* std::cout << "rot_mat^T det: " << rot_mat.determinant() << "\n"; */
 
-      /* rot_mat.row(0) = h_vector; */
-      /* rot_mat.row(1) = a_vector; */
-      /* rot_mat.row(2) = z_vector; */
-      /* const vec3_t tmp_col = rot_mat.col(0); */
-      /* rot_mat.col(0) = rot_mat.col(1); */
-      /* rot_mat.col(1) = tmp_col; */
-      std::cout << "rot_mat det: " << rot_mat.determinant() << "\n";
+      /* const quat_t q = quat_t(anax_t(M_PI, vec3_t::UnitZ())*anax_t(M_PI, vec3_t::UnitX())*rot_mat); */
       const quat_t q(rot_mat);
 
       nav_msgs::OdometryPtr msg = boost::make_shared<nav_msgs::Odometry>();
