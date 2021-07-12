@@ -264,10 +264,8 @@ uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p,
   }
 
   if (data_ordered_flags & cmd_realtime_data_custom_flags_encoder_raw24)
-  {
     for (int i = 0; i < 3; i++)
-      cmd.readBuf(&p.encoder_raw24[i], 3);
-  }
+      p.encoder_raw24[i] = cmd.readLong();
 
 /* #include <iostream> */
 /* #include <iomanip> */

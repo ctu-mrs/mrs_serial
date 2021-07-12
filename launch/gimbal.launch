@@ -5,8 +5,9 @@
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
   <arg name="baudrate" default="115200" /> 
 
+  <arg name="stabilization_frame_id" default="$(arg UAV_NAME)/gimbal/stabilization" /> 
   <arg name="base_frame_id" default="$(arg UAV_NAME)/gimbal/base_link" /> 
-  <arg name="child_frame_id" default="$(arg UAV_NAME)/gimbal/child_link" /> 
+  <arg name="stabilized_frame_id" default="$(arg UAV_NAME)/gimbal/child_link" /> 
   <arg name="optical_frame_id" default="$(arg UAV_NAME)/gimbal/camera_optical" /> 
 
   <!-- will it run using GNU debugger? -->
@@ -29,8 +30,9 @@
     <node pkg="nodelet" type="nodelet" name="gimbal_driver" args="$(arg nodelet) gimbal/Gimbal $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+      <param name="stabilization_frame_id" type="string" value="$(arg stabilization_frame_id)"/>
       <param name="base_frame_id" type="string" value="$(arg base_frame_id)"/>
-      <param name="child_frame_id" type="string" value="$(arg child_frame_id)"/>
+      <param name="stabilized_frame_id" type="string" value="$(arg stabilized_frame_id)"/>
 
       <rosparam file="$(find mrs_serial)/config/gimbal.yaml" />
 
@@ -40,7 +42,7 @@
 
     </node>
 
-    <node pkg="tf2_ros" type="static_transform_publisher" name="gimbal_static_tf_publisher" args="0 0 0 -1.5708 0.0 -1.5708 $(arg child_frame_id) $(arg optical_frame_id)" output="screen" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="gimbal_static_tf_publisher" args="0 0 0 -1.5708 0.0 -1.5708 $(arg stabilized_frame_id) $(arg optical_frame_id)" output="screen" />
 
   </group>
 
