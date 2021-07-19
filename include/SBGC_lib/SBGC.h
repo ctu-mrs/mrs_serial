@@ -147,6 +147,7 @@
 
 #define SBGC_CONTROL_MODE_MASK 0x0F // bits0..3 used for mode, other for flags
 
+#define SBGC_CONTROL_FLAG_AUTO_TASK (1<<6)
 #define SBGC_CONTROL_MODE_FLAG_UNTWIST (1<<7)
 
 

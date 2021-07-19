@@ -6,7 +6,7 @@
 	All rights reserved.
 	
 	See license info in the SBGC.h
-*/   
+*/
 
 #include <string.h>
 #include "SBGC_lib/SBGC.h"
@@ -27,7 +27,6 @@ void SBGC_cmd_control_pack(SBGC_cmd_control_t &p, SerialCommand &cmd) {
 		cmd.writeWord(p.angleYAW);
 	#endif
 }
-
 
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_data_stream_interval_pack(const SBGC_cmd_data_stream_interval_t& p, SerialCommand &cmd)
@@ -70,7 +69,6 @@ uint8_t SBGC_cmd_data_stream_interval_unpack(SBGC_cmd_data_stream_interval_t& p,
 	#endif
 }
 
-
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_control_ext_pack(SBGC_cmd_control_ext_t &p, SerialCommand &cmd) {
 	cmd.init(SBGC_CMD_CONTROL);
@@ -87,9 +85,6 @@ void SBGC_cmd_control_ext_pack(SBGC_cmd_control_ext_t &p, SerialCommand &cmd) {
 }
 
 
-
-
-
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_api_virt_ch_control_pack(SBGC_cmd_api_virt_ch_control_t &p, SerialCommand &cmd) {
 	cmd.init(SBGC_CMD_API_VIRT_CH_CONTROL);
@@ -103,11 +98,6 @@ void SBGC_cmd_api_virt_ch_control_pack(SBGC_cmd_api_virt_ch_control_t &p, Serial
 	#endif
 }
 
-
-
-
-
-
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_trigger_pack(SBGC_cmd_trigger_t &p, SerialCommand &cmd) {
 	cmd.init(SBGC_CMD_TRIGGER_PIN);
@@ -119,11 +109,6 @@ void SBGC_cmd_trigger_pack(SBGC_cmd_trigger_t &p, SerialCommand &cmd) {
 		cmd.writeByte(p.state);
 	#endif
 }
-
-
-
-
-
 
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_servo_out_pack(SBGC_cmd_servo_out_t &p, SerialCommand &cmd) {
@@ -138,15 +123,11 @@ void SBGC_cmd_servo_out_pack(SBGC_cmd_servo_out_t &p, SerialCommand &cmd) {
 	#endif
 }
 
-
-
-
-
 /* Packs command structure to SerialCommand object */
 void SBGC_cmd_set_adj_vars_pack(SBGC_cmd_set_adj_vars_var_t vars[], uint8_t vars_num, SerialCommand &cmd) {
 	cmd.init(SBGC_CMD_SET_ADJ_VARS_VAL);
 	cmd.writeByte(vars_num); // number of variables
-	
+
 	#ifdef SBGC_CMD_STRUCT_ALIGNED
 		cmd.writeBuf(vars, sizeof(SBGC_cmd_set_adj_vars_var_t)*vars_num);
 	#else
@@ -175,7 +156,7 @@ uint8_t SBGC_cmd_set_adj_vars_unpack(SBGC_cmd_set_adj_vars_var_t vars_buf[], uin
 				vars_buf[i].val = cmd.readLong();
 			}
 		#endif
-		
+
 		if(cmd.checkLimit()) return 0;
 		else return PARSER_ERROR_WRONG_DATA_SIZE;
 	} else {
@@ -218,7 +199,7 @@ uint8_t SBGC_cmd_realtime_data_unpack(SBGC_cmd_realtime_data_t &p, SerialCommand
 		p.cur_imu = cmd.readByte();
 		p.cur_profile = cmd.readByte();
 		cmd.readBuf(p.motor_power, 3);
-		
+
 		if(cmd.id == SBGC_CMD_REALTIME_DATA_4) {
 			cmd.readWordArr(p.rotor_angle, 3);
 			cmd.readByte(); // reserved
@@ -229,8 +210,8 @@ uint8_t SBGC_cmd_realtime_data_unpack(SBGC_cmd_realtime_data_t &p, SerialCommand
 			p.frame_imu_temp_celcius = cmd.readByte();
 			cmd.skipBytes(38);
 		}
-		
-		
+
+
 		if(cmd.checkLimit()) return 0;
 		else return PARSER_ERROR_WRONG_DATA_SIZE;
 	#endif
@@ -248,7 +229,7 @@ uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p,
 
   if (data_ordered_flags & cmd_realtime_data_custom_flags_target_angles)
     cmd.readWordArr(p.target_angles, 3);
-  
+
   if (data_ordered_flags & cmd_realtime_data_custom_flags_target_speed)
     cmd.readWordArr(p.target_speed, 3);
 

@@ -11,6 +11,11 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   std_msgs
   mrs_lib
+  dynamic_reconfigure
+  )
+
+generate_dynamic_reconfigure_options(
+  config/gimbal.cfg
   )
 
 catkin_package(

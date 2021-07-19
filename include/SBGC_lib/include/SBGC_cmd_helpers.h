@@ -136,7 +136,7 @@ typedef struct {
 		int16_t gyro_data;
 	} sensor_data[3];  // ACC and Gyro sensor data (with calibration) for current IMU (see cur_imu field)
 	int16_t serial_error_cnt; // counter for communication errors
-	int16_t system_error; // system error flags, defined in SBGC_SYS_ERR_XX 
+	int16_t system_error; // system error flags, defined in SBGC_SYS_ERR_XX
 	uint8_t reserved1[4];
 	int16_t rc_raw_data[SBGC_RC_NUM_CHANNELS]; // RC signal in 1000..2000 range for ROLL, PITCH, YAW, CMD, EXT_ROLL, EXT_PITCH channels
 	int16_t imu_angle[3]; // ROLL, PITCH, YAW Euler angles of a camera, 16384/360 degrees
@@ -150,7 +150,7 @@ typedef struct {
 	uint8_t cur_imu; // actually selecteted IMU for monitoring. 1: main IMU, 2: frame IMU
 	uint8_t cur_profile; // active profile number starting from 0
 	uint8_t motor_power[3]; // actual motor power for ROLL, PITCH, YAW axis, 0..255
-	
+
 	// Fields below are filled only for CMD_REALTIME_DATA_4 command
 	int16_t rotor_angle[3]; // relative angle of each motor, 16384/360 degrees
 	uint8_t reserved3;
@@ -231,5 +231,18 @@ inline uint8_t SBGC_cmd_execute_menu_send(uint8_t menu_action, SBGC_Parser &pars
 	return parser.send_cmd(cmd);
 }	
 
+// CMD_MOTORS_ON
+inline uint8_t SBGC_cmd_motors_on_send(SBGC_Parser &parser) {
+    SerialCommand cmd;
+    cmd.init(SBGC_CMD_MOTORS_ON);
+    return parser.send_cmd(cmd);
+}
+
+inline uint8_t SBGC_cmd_motors_off_send(uint8_t mode, SBGC_Parser &parser) {
+    SerialCommand cmd;
+    cmd.init(SBGC_CMD_MOTORS_OFF);
+    cmd.writeByte(mode);
+    return parser.send_cmd(cmd);
+}
 
 #endif

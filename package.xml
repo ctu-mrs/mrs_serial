@@ -20,6 +20,7 @@
   <depend>sensor_msgs</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>
+  <depend>dynamic_reconfigure</depend>
 
   <export>
 

@@ -1,1 +1,3 @@
 *.swp
+cmake-build-debug
+.idea

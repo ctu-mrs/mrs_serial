@@ -1,7 +1,7 @@
 <launch>
 
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
-  <arg name="portname" default="/dev/gimbal" />
+  <arg name="portname" default="/dev/ttyUSB0" />
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
   <arg name="baudrate" default="115200" /> 
 
