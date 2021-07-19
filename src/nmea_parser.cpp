@@ -70,6 +70,8 @@ private:
   ros::Timer serial_timer_;
   ros::Timer maintainer_timer_;
 
+  mrs_msgs::Bestpos bestpos_msg_;
+
   serial_port::SerialPort serial_port_;
 
   rtk_state rtk_state_ = NONE;
@@ -126,6 +128,8 @@ void NmeaParser::onInit() {
   string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
   serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &NmeaParser::stringTimer, this);
   maintainer_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
+
+  bestpos_msg_.diff_age = 99.0;
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -255,6 +259,17 @@ void NmeaParser::stringTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
   }
 
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << bestpos_msg_.diff_age;
+
+  msg.data += " age: " + stream.str();
+
+  if (bestpos_msg_.diff_age > 10) {
+    msg.data[0] = '-';  
+    msg.data[1] = 'R';  
+    msg.data[2] = ' ';  
+  }
+
   try {
     status_string_publisher_.publish(msg);
   }
@@ -285,7 +300,6 @@ void NmeaParser::processMessage() {
 void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
   mrs_msgs::Gpgga     gpgga_msg;
-  mrs_msgs::Bestpos   bestpos_msg;
   mrs_msgs::GpsStatus gps_status;
 
   try {
@@ -323,40 +337,40 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
     ROS_ERROR("Invalid argument exception in processGPGGA");
   }
 
-  bestpos_msg.latitude               = gpgga_msg.latitude;
-  bestpos_msg.longitude              = gpgga_msg.longitude;
-  bestpos_msg.height                 = gpgga_msg.altitude;
-  bestpos_msg.undulation             = gpgga_msg.undulation;
-  bestpos_msg.diff_age               = gpgga_msg.diff_age;
-  bestpos_msg.num_satellites_tracked = gpgga_msg.num_sats;
+  bestpos_msg_.latitude               = gpgga_msg.latitude;
+  bestpos_msg_.longitude              = gpgga_msg.longitude;
+  bestpos_msg_.height                 = gpgga_msg.altitude;
+  bestpos_msg_.undulation             = gpgga_msg.undulation;
+  bestpos_msg_.diff_age               = gpgga_msg.diff_age;
+  bestpos_msg_.num_satellites_tracked = gpgga_msg.num_sats;
 
   switch (gpgga_msg.gps_quality.quality) {
     case 1:
-      bestpos_msg.position_type = "SINGLE";
-      rtk_state_                = SINGLE;
+      bestpos_msg_.position_type = "SINGLE";
+      rtk_state_                 = SINGLE;
       break;
     case 2:
-      bestpos_msg.position_type = "PSRDIFF";
-      rtk_state_                = PSRDIFF;
+      bestpos_msg_.position_type = "PSRDIFF";
+      rtk_state_                 = PSRDIFF;
       break;
     case 4:
-      bestpos_msg.position_type = "L1_INT";
-      rtk_state_                = L1_INT;
+      bestpos_msg_.position_type = "L1_INT";
+      rtk_state_                 = L1_INT;
       break;
     case 5:
-      bestpos_msg.position_type = "L1_FLOAT";
-      rtk_state_                = L1_FLOAT;
+      bestpos_msg_.position_type = "L1_FLOAT";
+      rtk_state_                 = L1_FLOAT;
       break;
     default:
-      bestpos_msg.position_type = "NONE";
-      rtk_state_                = NONE;
+      bestpos_msg_.position_type = "NONE";
+      rtk_state_                 = NONE;
       break;
   }
   std_msgs::String string_msg;
-  string_msg.data = "RTK: " + bestpos_msg.position_type;
+  string_msg.data = "RTK: " + bestpos_msg_.position_type;
   try {
     gpgga_pub_.publish(gpgga_msg);
-    bestpos_pub_.publish(bestpos_msg);
+    bestpos_pub_.publish(bestpos_msg_);
     string_pub_.publish(string_msg);
 
     msg_counter_++;
