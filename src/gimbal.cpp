@@ -318,10 +318,13 @@ namespace gimbal {
         c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
 
         // 737 units stands for 5 deg/sec
-        c.data[PITCH_IDX].speed = 737;
-        c.data[ROLL_IDX].speed = 737;
-        c.data[YAW_IDX].speed = 737;
+        c.data[PITCH_IDX].speed = 200;
+        c.data[ROLL_IDX].speed = 200;
+        c.data[YAW_IDX].speed = 200;
 
+        ROS_INFO(
+                "[Gimbal]: |fn rotate_gimbal| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
         return SBGC_cmd_control_ext_send(c, sbgc_parser) == 0;
     }
     //}

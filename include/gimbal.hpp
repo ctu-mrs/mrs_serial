@@ -179,6 +179,7 @@ namespace gimbal {
                 start_gimbal_motors();
             }
             const double pitch = deg2rad(static_cast<double>(config.pitch_angle));
+            const double roll = deg2rad(static_cast<double>(config.roll_angle));
             const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
 //            rotate_gimbal(pitch, 0, yaw);
 
@@ -190,16 +191,24 @@ namespace gimbal {
                 return;
             }
             const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
+            const vec3_t YPR_angles = rot_mat.eulerAngles(YAW_IDX, ROLL_IDX, PITCH_IDX);
 
-            auto Ax = rot_mat.col(0);
-            auto Ay = rot_mat.col(1);
+//            auto Ax = rot_mat.col(0);
+//            auto Ay = rot_mat.col(1);
+//
+//            auto yaw_out = atan2(Ax[1], Ax[0]);
+//            auto pitch_out = atan2(Ax[2], Ax[0]);
+//            auto roll_out = M_PI_2-atan2(Ay[1], Ay[2]);
 
-            auto yaw_out = atan2(Ax[1], Ax[0]);
-            auto pitch_out = atan2(Ax[2], Ax[0]);
-            auto roll_out = M_PI_2-atan2(Ay[1], Ay[2]);
+            const double yaw0 = config.swap_order ? YPR_angles.z() : YPR_angles.x();
+            const double roll0 = YPR_angles.y();
+            const double pitch0 = config.swap_order ? YPR_angles.x() : YPR_angles.z();
 
+            const double yaw_out = yaw0 + yaw;
+            const double roll_out = roll0 + roll;
+            const double pitch_out = pitch0 + pitch;
 
-            rotate_gimbal(pitch_out + pitch, roll_out, yaw_out + yaw);
+            rotate_gimbal(pitch, roll, yaw);
             // DEBUGGING INFORMATION
 
             ROS_INFO_THROTTLE(3.0,
