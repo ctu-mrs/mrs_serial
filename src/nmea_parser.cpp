@@ -344,31 +344,36 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   bestpos_msg_.diff_age               = gpgga_msg.diff_age;
   bestpos_msg_.num_satellites_tracked = gpgga_msg.num_sats;
 
+  std_msgs::String string_msg;
+
   switch (gpgga_msg.gps_quality.quality) {
     case 1:
       bestpos_msg_.position_type = "SINGLE";
+      string_msg.data = "-y RTK: SINGLE";
       rtk_state_                 = SINGLE;
       break;
     case 2:
       bestpos_msg_.position_type = "PSRDIFF";
+      string_msg.data = "-y RTK: PSRDIFF";
       rtk_state_                 = PSRDIFF;
       break;
     case 4:
       bestpos_msg_.position_type = "L1_INT";
+      string_msg.data = "-g RTK: L1_INT";
       rtk_state_                 = L1_INT;
       break;
     case 5:
       bestpos_msg_.position_type = "L1_FLOAT";
+      string_msg.data = "-y RTK: L1_FLOAT";
       rtk_state_                 = L1_FLOAT;
       break;
     default:
       bestpos_msg_.position_type = "NONE";
+      string_msg.data = "-r RTK: NONE";
       rtk_state_                 = NONE;
       break;
   }
 
-  std_msgs::String string_msg;
-  string_msg.data = "RTK: " + bestpos_msg_.position_type;
   
   double diff_age = bestpos_msg_.diff_age;
   if (diff_age == 0.0 || diff_age > 99.9) {
