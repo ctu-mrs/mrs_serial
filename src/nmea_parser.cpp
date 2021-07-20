@@ -125,7 +125,7 @@ void NmeaParser::onInit() {
   string_pub_              = nh_.advertise<std_msgs::String>("status_out", 1);
   status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
 
-  string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
+  /* string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this); */
   serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &NmeaParser::stringTimer, this);
   maintainer_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
 
@@ -366,8 +366,25 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
       rtk_state_                 = NONE;
       break;
   }
+
   std_msgs::String string_msg;
   string_msg.data = "RTK: " + bestpos_msg_.position_type;
+  
+  double diff_age = bestpos_msg_.diff_age;
+  if (diff_age == 0.0 || diff_age > 99.9) {
+    diff_age = 99.9;
+  }
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << diff_age;
+
+  string_msg.data += " age: " + stream.str();
+
+  if (diff_age > 10) {
+    string_msg.data[0] = '-';  
+    string_msg.data[1] = 'R';  
+    string_msg.data[2] = ' ';  
+  }
+
   try {
     gpgga_pub_.publish(gpgga_msg);
     bestpos_pub_.publish(bestpos_msg_);
