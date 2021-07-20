@@ -129,10 +129,13 @@ namespace gimbal {
                                            "[Gimbal]: Received realtime custom data, but failed to unpack (parsed %u/%u bytes)!",
                                            cmd.pos, cmd.len);
                     }
-                }
                     break;
+                }
+                case SBGC_CMD_CONFIRM: {
+                    break;
+                }
                 default:
-                    ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
+                    ROS_INFO_STREAM_THROTTLE(5.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
                     break;
             }
 
@@ -185,7 +188,7 @@ namespace gimbal {
         const double pitch = PRY_angles.x();
         const double roll = PRY_angles.y();
         const double yaw = PRY_angles.z();
-        command_mount(pitch, roll, yaw);
+        rotate_gimbal(pitch, roll, yaw);
     }
     //}
 
@@ -205,39 +208,7 @@ namespace gimbal {
         const double pitch = PRY_angles.x();
         const double roll = PRY_angles.y();
         const double yaw = PRY_angles.z();
-        command_mount(pitch, roll, yaw);
-    }
-    //}
-
-    /* command_mount() method //{ */
-    bool Gimbal::command_mount(const double pitch, const double roll, const double yaw) {
-        SBGC_cmd_control_t c = {0};
-        c.mode = SBGC_CONTROL_MODE_ANGLE;
-        c.anglePITCH = pitch / units2rads;
-        c.angleROLL = roll / units2rads;
-        c.angleYAW = yaw / units2rads;
-        const bool ret = SBGC_cmd_control_send(c, sbgc_parser) == 0;
-
-        // recalculate to degrees for the display
-        const auto pitch_deg = static_cast<float>(pitch / M_PI * 180.0);
-        const auto roll_deg = static_cast<float>(roll / M_PI * 180.0);
-        const auto yaw_deg = static_cast<float>(yaw / M_PI * 180.0);
-        ROS_INFO_THROTTLE(1.0,
-                          "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg, yaw: %.0fdeg).",
-                          pitch_deg, roll_deg, yaw_deg);
-
-        const quat_t q = pry2quat(pitch, roll, yaw);
-        nav_msgs::OdometryPtr ros_msg = boost::make_shared<nav_msgs::Odometry>();
-        ros_msg->header.frame_id = m_base_frame_id;
-        ros_msg->header.stamp = ros::Time::now();
-        ros_msg->child_frame_id = m_stabilized_frame_id;
-        ros_msg->pose.pose.orientation.x = q.x();
-        ros_msg->pose.pose.orientation.y = q.y();
-        ros_msg->pose.pose.orientation.z = q.z();
-        ros_msg->pose.pose.orientation.w = q.w();
-        m_pub_command.publish(ros_msg);
-
-        return ret;
+        rotate_gimbal(pitch, roll, yaw);
     }
     //}
 
@@ -334,7 +305,30 @@ namespace gimbal {
     }
     //}
 
-    quat_t Gimbal::pry2quat(const double pitch, const double roll, const double yaw) {
+    /* rotate_gimbal() method //{ */
+    bool Gimbal::rotate_gimbal(const double pitch, const double roll, const double yaw) {
+        SBGC_cmd_control_ext_t c = {0};
+
+        c.mode[PITCH_IDX] = SBGC_CONTROL_MODE_ANGLE;
+        c.mode[ROLL_IDX] = SBGC_CONTROL_MODE_ANGLE;
+        c.mode[YAW_IDX] = SBGC_CONTROL_MODE_ANGLE;
+
+        c.data[PITCH_IDX].angle = static_cast<int16_t>(std::round(pitch / units2rads));
+        c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
+        c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
+
+        // 737 units stands for 5 deg/sec
+        c.data[PITCH_IDX].speed = 737;
+        c.data[ROLL_IDX].speed = 737;
+        c.data[YAW_IDX].speed = 737;
+
+        return SBGC_cmd_control_ext_send(c, sbgc_parser) == 0;
+    }
+    //}
+
+    quat_t Gimbal::pry2quat([[maybe_unused]] const double pitch,
+                            [[maybe_unused]] const double roll,
+                            [[maybe_unused]] const double yaw) {
         // TODO: this depends on the order of motors - a 2-axis PITCH-YAW gimbal (from camera to the frame) is assumed here
         // in our case PITCH_ROLL_YAW order is used (but there is no roll)
         return quat_t(anax_t(yaw, vec3_t::UnitZ()) * anax_t(pitch, vec3_t::UnitY()));
@@ -358,23 +352,6 @@ namespace gimbal {
             ROS_INFO_THROTTLE(3.0, "[Gimbal]: Error turning off motors");
         }
     }
-
-    bool Gimbal::turn_camera_on_deg(int16_t pitch_deg, int16_t yaw_deg, int16_t pitch_speed, int16_t yaw_speed) {
-        SBGC_cmd_control_ext_t c = {0};
-        c.mode[PITCH_IDX] = SBGC_CONTROL_MODE_ANGLE;
-        c.mode[YAW_IDX] = SBGC_CONTROL_MODE_ANGLE;
-
-        c.data[PITCH_IDX].angle = static_cast<int16_t>(std::ceil(pitch_deg / 0.02197265625));
-        c.data[YAW_IDX].angle = static_cast<int16_t>(std::ceil(yaw_deg / 0.02197265625));
-
-        // 0 for speed means default
-        c.data[PITCH_IDX].speed = pitch_speed;
-        c.data[YAW_IDX].speed = yaw_speed;
-
-        ROS_INFO("[Gimbal]: Turning gimbal on: \n\t YAW: %hd deg; \n\t PITCH: %hd deg", yaw_deg, pitch_deg);
-        return SBGC_cmd_control_ext_send(c, sbgc_parser);
-    }
-
 
 }  // namespace gimbal
 

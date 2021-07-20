@@ -137,6 +137,9 @@ namespace gimbal {
         template<typename T>
         T rad2deg(const T x) { return x / M_PI * 180; }
 
+        template<typename T>
+        T deg2rad(const T x) { return x * M_PI / 180; }
+
         bool connect();
 
         /* static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_target_angles | cmd_realtime_data_custom_flags_target_speed | cmd_realtime_data_custom_flags_stator_rotor_angle | cmd_realtime_data_custom_flags_encoder_raw24; */
@@ -158,7 +161,7 @@ namespace gimbal {
 
         void cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry);
 
-        bool command_mount(const double pitch, const double roll, const double yaw);
+        bool rotate_gimbal(double pitch, double roll, double yaw);
 
         void receiving_loop([[maybe_unused]] const ros::TimerEvent &evt);
 
@@ -166,25 +169,47 @@ namespace gimbal {
 
         void process_custom_data_msg(const SBGC_cmd_realtime_data_custom_t &data);
 
-        quat_t pry2quat(double pitch, double roll, double yaw);
+        quat_t pry2quat(double pitch, [[maybe_unused]] double roll, double yaw);
 
-        void callbackDynamicReconfigure(mrs_serial::GimbalParamsConfig &config, uint32_t level) {
+        void callbackDynamicReconfigure(const mrs_serial::GimbalParamsConfig &config, const uint32_t level) {
             ROS_INFO("[Gimbal] dynamic_reconf entered");
             if (config.motors_on_off == false) {
                 stop_gimbal_motors();
             } else {
                 start_gimbal_motors();
             }
-            turn_camera_on_deg(
-                    static_cast<int16_t>(config.pitch_angle), static_cast<int16_t>(config.yaw_angle));
+            const double pitch = deg2rad(static_cast<double>(config.pitch_angle));
+            const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
+//            rotate_gimbal(pitch, 0, yaw);
+
+            const auto tf_opt = m_transformer.getTransform(m_base_frame_id, m_stabilization_frame_id);
+            if (!tf_opt.has_value()) {
+                ROS_ERROR_THROTTLE(1.0,
+                                   "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
+                                   m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
+                return;
+            }
+            const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
+
+            auto Ax = rot_mat.col(0);
+            auto Ay = rot_mat.col(1);
+
+            auto yaw_out = atan2(Ax[1], Ax[0]);
+            auto pitch_out = atan2(Ax[2], Ax[0]);
+            auto roll_out = M_PI_2-atan2(Ay[1], Ay[2]);
+
+
+            rotate_gimbal(pitch_out + pitch, roll_out, yaw_out + yaw);
+            // DEBUGGING INFORMATION
+
+            ROS_INFO_THROTTLE(3.0,
+                              "[Gimbal]: |Driver > Gimbal| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                              rad2deg(pitch_out), rad2deg(roll_out), rad2deg(yaw_out));
         }
 
         void start_gimbal_motors();
 
         void stop_gimbal_motors();
-
-        bool turn_camera_on_deg(int16_t pitch_deg, int16_t yaw_deg, int16_t pitch_speed = 737, int16_t yaw_speed = 737);
-
 
         // --------------------------------------------------------------
         // |                    ROS-related variables                   |
