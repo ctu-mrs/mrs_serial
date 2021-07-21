@@ -173,42 +173,46 @@ namespace gimbal {
 
     /* cmd_orientation_cbk() method //{ */
     void Gimbal::cmd_orientation_cbk(const geometry_msgs::QuaternionStamped::ConstPtr &cmd_orientation) {
-        const auto ori_opt = m_transformer.transformSingle(m_stabilization_frame_id, cmd_orientation);
+        auto quat_eig = quat_t{};
+
+        quat_eig.x() = cmd_orientation->quaternion.x;
+        quat_eig.y() = cmd_orientation->quaternion.y;
+        quat_eig.z() = cmd_orientation->quaternion.z;
+        quat_eig.w() = cmd_orientation->quaternion.w;
+
+        if (! eq(quat_eig.norm(), 1.0)) {
+            ROS_WARN_THROTTLE(1.0,
+                               "[Gimbal]: Quaternion norm is not 1 but %f: normalizing",
+                               quat_eig.norm());
+            quat_eig.normalize();
+        }
+        auto cmd_orientation_normalized = boost::make_shared<geometry_msgs::QuaternionStamped>();
+
+        cmd_orientation_normalized->quaternion.x = quat_eig.x();
+        cmd_orientation_normalized->quaternion.y = quat_eig.y();
+        cmd_orientation_normalized->quaternion.z = quat_eig.z();
+        cmd_orientation_normalized->quaternion.w = quat_eig.w();
+        cmd_orientation_normalized->header = cmd_orientation->header;
+
+        const auto ori_opt = m_transformer.transformSingle(m_stabilization_frame_id, cmd_orientation_normalized);
         if (!ori_opt.has_value()) {
             ROS_ERROR_THROTTLE(1.0,
                                "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
                                cmd_orientation->header.frame_id.c_str(), m_stabilization_frame_id.c_str());
             return;
         }
+
         const geometry_msgs::Quaternion orientation_quat = ori_opt.value()->quaternion;
-        const mat3_t rot_mat(
-                quat_t(orientation_quat.w, orientation_quat.x, orientation_quat.y, orientation_quat.z));
-        // TODO: fix...
-        const vec3_t PRY_angles = rot_mat.eulerAngles(YAW_IDX, PITCH_IDX, ROLL_IDX);
-        const double pitch = PRY_angles.x();
-        const double roll = PRY_angles.y();
-        const double yaw = PRY_angles.z();
-        rotate_gimbal(pitch, roll, yaw);
+        const mat3_t rot_mat(quat_t(orientation_quat.w, orientation_quat.x, orientation_quat.y, orientation_quat.z));
+
+        rotate_gimbal_PRY_rot_mat(0, 0, 0, rot_mat);
     }
     //}
 
     /* cmd_pry_cbk() method //{ */
     void Gimbal::cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry) {
-        const auto tf_opt = m_transformer.getTransform(m_base_frame_id, m_stabilization_frame_id);
-        if (!tf_opt.has_value()) {
-            ROS_ERROR_THROTTLE(1.0,
-                               "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
-                               m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
-            return;
-        }
-        const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
-        const quat_t q = pry2quat(cmd_pry->pitch, cmd_pry->roll, cmd_pry->yaw);
-        // TODO: fix...
-        const vec3_t PRY_angles = (rot_mat * q).eulerAngles(YAW_IDX, PITCH_IDX, ROLL_IDX);
-        const double pitch = PRY_angles.x();
-        const double roll = PRY_angles.y();
-        const double yaw = PRY_angles.z();
-        rotate_gimbal(pitch, roll, yaw);
+        rotate_gimbal_PRY_between_frames(cmd_pry->pitch, cmd_pry->roll, cmd_pry->yaw,
+                                         m_base_frame_id, m_stabilization_frame_id);
     }
     //}
 
@@ -305,8 +309,40 @@ namespace gimbal {
     }
     //}
 
-    /* rotate_gimbal() method //{ */
-    bool Gimbal::rotate_gimbal(const double pitch, const double roll, const double yaw) {
+    void Gimbal::rotate_gimbal_PRY_between_frames(const double &pitch, const double &roll, const double &yaw,
+                                                  const std::string &in_frame_id, const std::string &out_frame_id) {
+
+        const auto tf_opt = m_transformer.getTransform(in_frame_id, out_frame_id);
+
+        if (!tf_opt.has_value()) {
+            ROS_ERROR_THROTTLE(1.0,
+                               "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
+                               m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
+            return;
+        }
+
+        const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
+
+        rotate_gimbal_PRY_rot_mat(pitch, roll, yaw, rot_mat);
+    }
+
+    void Gimbal::rotate_gimbal_PRY_rot_mat(double pitch, double roll, double yaw, const mat3_t &rot_mat) {
+
+        const vec3_t RPY_angles = rotation2rpy(rot_mat);
+
+        const double pitch_out = RPY_angles.y() + pitch;
+        const double roll_out = RPY_angles.x() + roll;
+        const double yaw_out = RPY_angles.z() + yaw;
+
+        ROS_INFO_THROTTLE(1.0,
+                          "[Gimbal]: |Driver| Sending control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                          rad2deg(pitch_out), rad2deg(roll_out), rad2deg(yaw_out));
+
+        rotate_gimbal_PRY(pitch_out, roll_out, yaw_out);
+    }
+
+    /* rotate_gimbal_PRY() method //{ */
+    bool Gimbal::rotate_gimbal_PRY(const double pitch, const double roll, const double yaw) {
         SBGC_cmd_control_ext_t c = {0};
 
         c.mode[PITCH_IDX] = SBGC_CONTROL_MODE_ANGLE;
@@ -323,7 +359,7 @@ namespace gimbal {
         c.data[YAW_IDX].speed = 200;
 
         ROS_INFO(
-                "[Gimbal]: |fn rotate_gimbal| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                "[Gimbal]: |fn rotate_gimbal_PRY| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
                 rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
         return SBGC_cmd_control_ext_send(c, sbgc_parser) == 0;
     }
@@ -344,7 +380,7 @@ namespace gimbal {
             theta = M_PI_2;
             psi = atan2(R(0, 1), R(0, 2));
         } else if (eq(R(2, 0), 1.0)) {
-            theta = - M_PI_2;
+            theta = -M_PI_2;
             psi = atan2(-R(0, 1), -R(0, 2));
         } else {
             theta = -asin(R(2, 0));

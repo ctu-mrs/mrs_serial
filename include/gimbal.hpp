@@ -164,7 +164,7 @@ namespace gimbal {
 
         void cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry);
 
-        bool rotate_gimbal(double pitch, double roll, double yaw);
+        bool rotate_gimbal_PRY(double pitch, double roll, double yaw);
 
         void receiving_loop([[maybe_unused]] const ros::TimerEvent &evt);
 
@@ -175,6 +175,11 @@ namespace gimbal {
         quat_t pry2quat(double pitch, [[maybe_unused]] double roll, double yaw);
 
         vec3_t rotation2rpy(const mat3_t &R);
+
+        void rotate_gimbal_PRY_between_frames(const double &pitch, const double &roll, const double &yaw,
+                                              const std::string &in_frame_id, const std::string &out_frame_id);
+
+        void rotate_gimbal_PRY_rot_mat(double pitch, double roll, double yaw, const mat3_t &rot_mat);
 
         void callbackDynamicReconfigure(const mrs_serial::GimbalParamsConfig &config, const uint32_t level) {
             ROS_INFO("[Gimbal] dynamic_reconf entered");
@@ -187,30 +192,11 @@ namespace gimbal {
             const double roll = deg2rad(static_cast<double>(config.roll_angle));
             const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
 
-            const auto tf_opt = m_transformer.getTransform(m_base_frame_id, m_stabilization_frame_id);
-            if (!tf_opt.has_value()) {
-                ROS_ERROR_THROTTLE(1.0,
-                                   "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
-                                   m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
-                return;
-            }
-            const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
-            const vec3_t RPY_angles = rotation2rpy(rot_mat);
-
-            const double pitch0 = RPY_angles.y();
-            const double roll0 = RPY_angles.x();
-            const double yaw0 = RPY_angles.z();
-
-            const double pitch_out = pitch0 + pitch;
-            const double roll_out = roll0 + roll;
-            const double yaw_out = yaw0 + yaw;
-
-            rotate_gimbal(pitch_out, roll_out, yaw_out);
-            // DEBUGGING INFORMATION
+            rotate_gimbal_PRY_between_frames(pitch, roll, yaw, m_base_frame_id, m_stabilization_frame_id);
 
             ROS_INFO_THROTTLE(1.0,
-                              "[Gimbal]: |Driver > Gimbal| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
-                              rad2deg(pitch_out), rad2deg(roll_out), rad2deg(yaw_out));
+                              "[Gimbal]: |dynparam reconf| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                              rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
         }
 
         void start_gimbal_motors();
