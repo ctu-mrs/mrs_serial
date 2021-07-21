@@ -110,6 +110,9 @@ namespace gimbal {
     /* sending_loop() //{ */
     void Gimbal::sending_loop([[maybe_unused]] const ros::TimerEvent &evt) {
         request_data(m_request_data_flags);
+        if (not m_correct_euler_order) {
+            SBGC_cmd_read_params_3_send(sbgc_parser);
+        }
     }
     //}
 
@@ -134,8 +137,26 @@ namespace gimbal {
                 case SBGC_CMD_CONFIRM: {
                     break;
                 }
+                case SBGC_CMD_READ_PARAMS_3: {
+                    SBGC_cmd_read_write_params_3_t msg = {0};
+                    if (SBGC_cmd_read_params_3_unpack(msg, cmd) == 0) {
+                        ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received read params data.");
+                        if (msg.order_of_axes != static_cast<int>(euler_order_t::pitch_roll_yaw) or
+                            msg.euler_order != static_cast<int>(euler_order_t::roll_pitch_yaw)) {
+                            ROS_ERROR_THROTTLE(2.0, "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported now).");
+                        } else {
+                            ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received correct orders of euler angles, continuing...");
+                            m_correct_euler_order = true;
+                        }
+                    } else {
+                        ROS_ERROR_THROTTLE(2.0,
+                                           "[Gimbal]: Received read params data, but failed to unpack (parsed %u/%u bytes)!",
+                                           cmd.pos, cmd.len);
+                    }
+                    break;
+                }
                 default:
-                    ROS_INFO_STREAM_THROTTLE(5.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
+                    ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
                     break;
             }
 
@@ -180,10 +201,10 @@ namespace gimbal {
         quat_eig.z() = cmd_orientation->quaternion.z;
         quat_eig.w() = cmd_orientation->quaternion.w;
 
-        if (! eq(quat_eig.norm(), 1.0)) {
+        if (not eq(quat_eig.norm(), 1.0)) {
             ROS_WARN_THROTTLE(1.0,
-                               "[Gimbal]: Quaternion norm is not 1 but %f: normalizing",
-                               quat_eig.norm());
+                              "[Gimbal]: Quaternion norm is not 1 but %f: normalizing",
+                              quat_eig.norm());
             quat_eig.normalize();
         }
         auto cmd_orientation_normalized = boost::make_shared<geometry_msgs::QuaternionStamped>();
@@ -334,10 +355,6 @@ namespace gimbal {
         const double roll_out = RPY_angles.x() + roll;
         const double yaw_out = RPY_angles.z() + yaw;
 
-        ROS_INFO_THROTTLE(1.0,
-                          "[Gimbal]: |Driver| Sending control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
-                          rad2deg(pitch_out), rad2deg(roll_out), rad2deg(yaw_out));
-
         rotate_gimbal_PRY(pitch_out, roll_out, yaw_out);
     }
 
@@ -353,13 +370,13 @@ namespace gimbal {
         c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
         c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
 
-        // 737 units stands for 5 deg/sec
-        c.data[PITCH_IDX].speed = 200;
-        c.data[ROLL_IDX].speed = 200;
-        c.data[YAW_IDX].speed = 200;
+        // 737 units stands for 5 deg/sec (1 unit is 0,1220740379 degree/sec)
+        c.data[PITCH_IDX].speed = 737;
+        c.data[ROLL_IDX].speed = 737;
+        c.data[YAW_IDX].speed = 737;
 
         ROS_INFO(
-                "[Gimbal]: |fn rotate_gimbal_PRY| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+                "[Gimbal]: |System -> Driver| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
                 rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
         return SBGC_cmd_control_ext_send(c, sbgc_parser) == 0;
     }

@@ -50,6 +50,7 @@ namespace gimbal {
             pitchmotor_roll_yawmotor = 2,
             roll_pitchmotor_yawmotor = 3,
             yaw_roll_pitch = 4,
+            yaw_pitch_roll = 5,
             unknown,
         };
 
@@ -145,6 +146,8 @@ namespace gimbal {
 
         bool connect();
 
+        bool m_correct_euler_order = false;
+
         /* static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_target_angles | cmd_realtime_data_custom_flags_target_speed | cmd_realtime_data_custom_flags_stator_rotor_angle | cmd_realtime_data_custom_flags_encoder_raw24; */
         static constexpr uint32_t m_request_data_flags =
                 cmd_realtime_data_custom_flags_z_vector_h_vector | cmd_realtime_data_custom_flags_stator_rotor_angle;
@@ -194,9 +197,9 @@ namespace gimbal {
 
             rotate_gimbal_PRY_between_frames(pitch, roll, yaw, m_base_frame_id, m_stabilization_frame_id);
 
-            ROS_INFO_THROTTLE(1.0,
-                              "[Gimbal]: |dynparam reconf| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
-                              rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
+//            ROS_INFO_THROTTLE(1.0,
+//                              "[Gimbal]: |dynparam reconf| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
+//                              rad2deg(pitch), rad2deg(roll), rad2deg(yaw));
         }
 
         void start_gimbal_motors();
