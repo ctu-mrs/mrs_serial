@@ -337,6 +337,23 @@ namespace gimbal {
         return quat_t(anax_t(yaw, vec3_t::UnitZ()) * anax_t(pitch, vec3_t::UnitY()));
     }
 
+    vec3_t Gimbal::rotation2rpy(const mat3_t &R) {
+        double phi = 0.0, theta, psi;
+
+        if (eq(R(2, 0), -1.0)) {
+            theta = M_PI_2;
+            psi = atan2(R(0, 1), R(0, 2));
+        } else if (eq(R(2, 0), 1.0)) {
+            theta = - M_PI_2;
+            psi = atan2(-R(0, 1), -R(0, 2));
+        } else {
+            theta = -asin(R(2, 0));
+            psi = atan2((R(2, 1) / cos(theta)), (R(2, 2) / cos(theta)));
+            phi = atan2((R(1, 0) / cos(theta)), (R(0, 0) / cos(theta)));
+        }
+
+        return {psi, theta, phi};
+    }
 
     void Gimbal::start_gimbal_motors() {
         ROS_INFO("[Gimbal]: Starting motors.");

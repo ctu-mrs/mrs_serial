@@ -140,6 +140,9 @@ namespace gimbal {
         template<typename T>
         T deg2rad(const T x) { return x * M_PI / 180; }
 
+        template<typename T>
+        bool eq(T a1, T a2) { return abs(a1 - a2) <= std::numeric_limits<double>::epsilon(); }
+
         bool connect();
 
         /* static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_target_angles | cmd_realtime_data_custom_flags_target_speed | cmd_realtime_data_custom_flags_stator_rotor_angle | cmd_realtime_data_custom_flags_encoder_raw24; */
@@ -171,6 +174,8 @@ namespace gimbal {
 
         quat_t pry2quat(double pitch, [[maybe_unused]] double roll, double yaw);
 
+        vec3_t rotation2rpy(const mat3_t &R);
+
         void callbackDynamicReconfigure(const mrs_serial::GimbalParamsConfig &config, const uint32_t level) {
             ROS_INFO("[Gimbal] dynamic_reconf entered");
             if (config.motors_on_off == false) {
@@ -181,7 +186,6 @@ namespace gimbal {
             const double pitch = deg2rad(static_cast<double>(config.pitch_angle));
             const double roll = deg2rad(static_cast<double>(config.roll_angle));
             const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
-//            rotate_gimbal(pitch, 0, yaw);
 
             const auto tf_opt = m_transformer.getTransform(m_base_frame_id, m_stabilization_frame_id);
             if (!tf_opt.has_value()) {
@@ -191,27 +195,20 @@ namespace gimbal {
                 return;
             }
             const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
-            const vec3_t YPR_angles = rot_mat.eulerAngles(YAW_IDX, ROLL_IDX, PITCH_IDX);
+            const vec3_t RPY_angles = rotation2rpy(rot_mat);
 
-//            auto Ax = rot_mat.col(0);
-//            auto Ay = rot_mat.col(1);
-//
-//            auto yaw_out = atan2(Ax[1], Ax[0]);
-//            auto pitch_out = atan2(Ax[2], Ax[0]);
-//            auto roll_out = M_PI_2-atan2(Ay[1], Ay[2]);
+            const double pitch0 = RPY_angles.y();
+            const double roll0 = RPY_angles.x();
+            const double yaw0 = RPY_angles.z();
 
-            const double yaw0 = config.swap_order ? YPR_angles.z() : YPR_angles.x();
-            const double roll0 = YPR_angles.y();
-            const double pitch0 = config.swap_order ? YPR_angles.x() : YPR_angles.z();
-
-            const double yaw_out = yaw0 + yaw;
-            const double roll_out = roll0 + roll;
             const double pitch_out = pitch0 + pitch;
+            const double roll_out = roll0 + roll;
+            const double yaw_out = yaw0 + yaw;
 
-            rotate_gimbal(pitch, roll, yaw);
+            rotate_gimbal(pitch_out, roll_out, yaw_out);
             // DEBUGGING INFORMATION
 
-            ROS_INFO_THROTTLE(3.0,
+            ROS_INFO_THROTTLE(1.0,
                               "[Gimbal]: |Driver > Gimbal| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
                               rad2deg(pitch_out), rad2deg(roll_out), rad2deg(yaw_out));
         }
