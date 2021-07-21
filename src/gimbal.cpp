@@ -143,7 +143,8 @@ namespace gimbal {
                         ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received read params data.");
                         if (msg.order_of_axes != static_cast<int>(euler_order_t::pitch_roll_yaw) or
                             msg.euler_order != static_cast<int>(euler_order_t::roll_pitch_yaw)) {
-                            ROS_ERROR_THROTTLE(2.0, "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported now).");
+                            ROS_ERROR_THROTTLE(2.0, "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported yet).");
+                            ros::shutdown();
                         } else {
                             ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received correct orders of euler angles, continuing...");
                             m_correct_euler_order = true;
