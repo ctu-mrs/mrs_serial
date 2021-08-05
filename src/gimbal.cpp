@@ -369,7 +369,7 @@ namespace gimbal {
 
         c.data[PITCH_IDX].angle = static_cast<int16_t>(std::round(pitch / units2rads));
         c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
-        c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(yaw / units2rads));
+        c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(- yaw / units2rads));
 
         // 737 units stands for 5 deg/sec (1 unit is 0,1220740379 degree/sec)
         c.data[PITCH_IDX].speed = 737;
