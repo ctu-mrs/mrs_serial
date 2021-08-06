@@ -58,22 +58,14 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        camera:
-          Value: false
-        mbundle:
-          Value: true
-        tag_0:
-          Value: true
-        tag_1:
-          Value: false
         uav1/gimbal/base_link:
           Value: true
         uav1/gimbal/camera_optical:
           Value: false
         uav1/gimbal/child_link:
-          Value: false
+          Value: true
         uav1/gimbal/stabilization:
-          Value: false
+          Value: true
       Marker Alpha: 1
       Marker Scale: 2
       Name: TF
@@ -84,22 +76,16 @@ Visualization Manager:
         uav1/gimbal/base_link:
           uav1/gimbal/child_link:
             uav1/gimbal/camera_optical:
-              camera:
-                mbundle:
-                  {}
-                tag_0:
-                  {}
-                tag_1:
-                  {}
+              {}
             uav1/gimbal/stabilization:
               {}
       Update Interval: 0
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 136; 138; 133
+    Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: uav1/gimbal/base_link
+    Fixed Frame: uav1/gimbal/stabilization
     Frame Rate: 30
   Name: root
   Tools:
@@ -123,7 +109,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.035205841064453
+      Distance: 1.9838788509368896
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -139,9 +125,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.48520249128341675
+      Pitch: -0.009601211175322533
       Target Frame: <Fixed Frame>
-      Yaw: 3.3335659503936768
+      Yaw: 5.455416202545166
     Saved: ~
 Window Geometry:
   Displays:
