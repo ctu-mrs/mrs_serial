@@ -1,3 +1,4 @@
 *.swp
 cmake-build-debug
 .idea
+tmux_scripts/.tmuxinator.yml
