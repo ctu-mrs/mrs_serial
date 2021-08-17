@@ -14,59 +14,58 @@
 
 #include <string>
 
-namespace serial_port
-{
+namespace serial_port {
 
-  class SerialPort
-  {
-  public:
-    SerialPort();
-    virtual ~SerialPort();
+    class SerialPort {
+    public:
+        SerialPort();
 
-    bool connect(const std::string port, int baudrate);
-    void disconnect();
+        virtual ~SerialPort();
 
-    virtual bool sendChar(const char c);
-    virtual bool sendCharArray(uint8_t* buffer, int len);
+        bool connect(const std::string port, int baudrate);
 
-    void setBlocking(int fd, int should_block);
+        void disconnect();
 
-    bool checkConnected();
+        virtual bool sendChar(const char c);
 
-    virtual bool readChar(uint8_t* c);
-    virtual int readSerial(uint8_t* arr, int arr_max_size);
+        virtual bool sendCharArray(uint8_t *buffer, int len);
 
-    int serial_port_fd_;
-  };
+        void setBlocking(int fd, int should_block);
 
-  class SerialPortThreadsafe : public SerialPort
-  {
-  public:
-    virtual bool sendChar(const char c) override
-    {
-      std::scoped_lock lck(mtx_);
-      return SerialPort::sendChar(c);
-    };
-    virtual bool sendCharArray(uint8_t* buffer, int len) override
-    {
-      std::scoped_lock lck(mtx_);
-      return SerialPort::sendCharArray(buffer, len);
+        bool checkConnected();
+
+        virtual bool readChar(uint8_t *c);
+
+        virtual int readSerial(uint8_t *arr, int arr_max_size);
+
+        int serial_port_fd_;
     };
 
-    virtual bool readChar(uint8_t* c) override
-    {
-      std::scoped_lock lck(mtx_);
-      return SerialPort::readChar(c);
-    };
-    virtual int readSerial(uint8_t* arr, int arr_max_size) override
-    {
-      std::scoped_lock lck(mtx_);
-      return SerialPort::readSerial(arr, arr_max_size);
-    };
+    class SerialPortThreadsafe : public SerialPort {
+    public:
+        virtual bool sendChar(const char c) override {
+            std::scoped_lock lck(mtx_);
+            return SerialPort::sendChar(c);
+        };
 
-  private:
-    std::mutex mtx_;
-  };
+        virtual bool sendCharArray(uint8_t *buffer, int len) override {
+            std::scoped_lock lck(mtx_);
+            return SerialPort::sendCharArray(buffer, len);
+        };
+
+        virtual bool readChar(uint8_t *c) override {
+            std::scoped_lock lck(mtx_);
+            return SerialPort::readChar(c);
+        };
+
+        virtual int readSerial(uint8_t *arr, int arr_max_size) override {
+            std::scoped_lock lck(mtx_);
+            return SerialPort::readSerial(arr, arr_max_size);
+        };
+
+    private:
+        std::mutex mtx_;
+    };
 
 }  // namespace serial_port
 

@@ -81,10 +81,10 @@ namespace gimbal {
 
 
     /* connect() //{ */
-    
+
     bool Gimbal::connect() {
         ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
-    
+
         if (!m_serial_port.connect(m_portname, m_baudrate)) {
             ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
             m_is_connected = false;
@@ -92,10 +92,10 @@ namespace gimbal {
             ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
             m_is_connected = true;
         }
-    
+
         return m_is_connected;
     }
-    
+
     //}
 
     /* request_data() method //{ */
@@ -146,7 +146,8 @@ namespace gimbal {
                         ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received read params data.");
                         if (msg.order_of_axes != static_cast<int>(euler_order_t::pitch_roll_yaw) or
                             msg.euler_order != static_cast<int>(euler_order_t::roll_pitch_yaw)) {
-                            ROS_ERROR_THROTTLE(2.0, "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported yet).");
+                            ROS_ERROR_THROTTLE(2.0,
+                                               "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported yet).");
                             ros::shutdown();
                         } else {
                             ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received correct orders of euler angles, continuing...");
@@ -249,7 +250,7 @@ namespace gimbal {
 
         if (std::strcmp(param_id, EULER_ORDER_PARAM_ID) == 0) {
             // | ----------------------- EULER_ORDER ---------------------- |
-            const uint32_t value = *((uint32_t *) (&param_value.param_value));
+            const uint32_t value = *((uint32_t * )(&param_value.param_value));
             if (value >= 0 && value < static_cast<uint32_t>(euler_order_t::unknown)) {
                 m_euler_ordering = static_cast<euler_order_t>(value);
                 ROS_INFO_THROTTLE(1.0, "[Gimbal]: %s parameter is %d (raw is %f, type is %u).",
@@ -335,28 +336,28 @@ namespace gimbal {
     //}
 
     /* rotate_gimbal_PRY_between_frames() //{ */
-    
+
     void Gimbal::rotate_gimbal_PRY_between_frames(const double &pitch, const double &roll, const double &yaw,
                                                   const std::string &in_frame_id, const std::string &out_frame_id) {
-    
+
         const auto tf_opt = m_transformer.getTransform(in_frame_id, out_frame_id);
-    
+
         if (!tf_opt.has_value()) {
             ROS_ERROR_THROTTLE(1.0,
                                "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
                                m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
             return;
         }
-    
+
         const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
-    
+
         rotate_gimbal_PRY_rot_mat(pitch, roll, yaw, rot_mat);
     }
-    
+
     //}
 
-   /* rotate_gimbal_PRY_rot_mat() //{ */
-   
+    /* rotate_gimbal_PRY_rot_mat() //{ */
+
     void Gimbal::rotate_gimbal_PRY_rot_mat(double pitch, double roll, double yaw, const mat3_t &rot_mat) {
 
         const vec3_t RPY_angles = rotation2rpy(rot_mat);
@@ -368,8 +369,8 @@ namespace gimbal {
         rotate_gimbal_PRY(pitch_out, roll_out, yaw_out);
     }
 
-   
-   //}
+
+    //}
 
     /* rotate_gimbal_PRY() method //{ */
     bool Gimbal::rotate_gimbal_PRY(const double pitch, const double roll, const double yaw) {
@@ -381,7 +382,7 @@ namespace gimbal {
 
         c.data[PITCH_IDX].angle = static_cast<int16_t>(std::round(pitch / units2rads));
         c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
-        c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(- yaw / units2rads));
+        c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
 
         // 737 units stands for 90 deg/sec (1 unit is 0,1220740379 degree/sec)
         c.data[PITCH_IDX].speed = m_speed_pitch;
@@ -421,8 +422,8 @@ namespace gimbal {
         return {psi, theta, phi};
     }
 
-   /* motors_on_off functions //{ */
-   
+    /* motors_on_off functions //{ */
+
     void Gimbal::start_gimbal_motors() {
         ROS_INFO("[Gimbal]: Starting motors.");
         if (SBGC_cmd_motors_on_send(sbgc_parser) == 0) {
@@ -441,8 +442,9 @@ namespace gimbal {
         }
     }
 
-   //}
+    //}
 
 }  // namespace gimbal
 
-PLUGINLIB_EXPORT_CLASS(gimbal::Gimbal, nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS(gimbal::Gimbal, nodelet::Nodelet
+);
