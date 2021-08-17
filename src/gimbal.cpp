@@ -59,7 +59,7 @@ namespace gimbal {
         const bool connected = connect();
         if (connected) {
             m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
-            m_tim_receiving = m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
+            m_tim_receiving = m_nh.createTimer(ros::Duration(0.001), &Gimbal::receiving_loop, this);
 
             m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
             m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
@@ -383,7 +383,7 @@ namespace gimbal {
         c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
         c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(- yaw / units2rads));
 
-        // 737 units stands for 5 deg/sec (1 unit is 0,1220740379 degree/sec)
+        // 737 units stands for 90 deg/sec (1 unit is 0,1220740379 degree/sec)
         c.data[PITCH_IDX].speed = m_speed_pitch;
         c.data[ROLL_IDX].speed = m_speed_roll;
         c.data[YAW_IDX].speed = m_speed_yaw;
