@@ -11,6 +11,7 @@
 #include <errno.h>    // Error number definitions
 #include <termios.h>  // POSIX terminal control definitions
 #include <sys/ioctl.h>
+#include <aio.h>
 
 #include <string>
 

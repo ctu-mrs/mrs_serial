@@ -196,9 +196,12 @@ namespace gimbal {
             const double roll = deg2rad(static_cast<double>(config.roll_angle));
             const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
 
-            m_speed_yaw = config.yaw_speed * 0, 1220740379;
-            m_speed_pitch = config.pitch_speed * 0, 1220740379;
-            m_speed_roll = config.roll_speed * 0, 1220740379;
+            //m_speed_yaw = config.yaw_speed * 0.1220740379;
+            //m_speed_pitch = config.pitch_speed * 0.1220740379;
+            //m_speed_roll = config.roll_speed * 0.1220740379;
+            m_speed_yaw = config.yaw_speed;
+            m_speed_pitch = config.pitch_speed;
+            m_speed_roll = config.roll_speed;
 
             rotate_gimbal_PRY_between_frames(pitch, roll, yaw, m_base_frame_id, m_stabilization_frame_id);
 

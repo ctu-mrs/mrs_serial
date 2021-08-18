@@ -143,32 +143,32 @@ namespace gimbal {
                 case SBGC_CMD_READ_PARAMS_3: {
                     SBGC_cmd_read_write_params_3_t msg = {0};
                     if (SBGC_cmd_read_params_3_unpack(msg, cmd) == 0) {
-                        ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received read params data.");
+                        ROS_INFO_THROTTLE(1.0, "[Gimbal]: Received read params data.");
                         if (msg.order_of_axes != static_cast<int>(euler_order_t::pitch_roll_yaw) or
                             msg.euler_order != static_cast<int>(euler_order_t::roll_pitch_yaw)) {
-                            ROS_ERROR_THROTTLE(2.0,
+                            ROS_ERROR_THROTTLE(1.0,
                                                "[Gimbal]: Critical error: Either order_of_axis or euler_order are incorrect (not supported yet).");
                             ros::shutdown();
                         } else {
-                            ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received correct orders of euler angles, continuing...");
+                            ROS_INFO_THROTTLE(1.0, "[Gimbal]: Received correct orders of euler angles, continuing...");
                             m_correct_euler_order = true;
                         }
                     } else {
-                        ROS_ERROR_THROTTLE(2.0,
+                        ROS_ERROR_THROTTLE(1.0,
                                            "[Gimbal]: Received read params data, but failed to unpack (parsed %u/%u bytes)!",
                                            cmd.pos, cmd.len);
                     }
                     break;
                 }
                 default:
-                    ROS_INFO_STREAM_THROTTLE(2.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
+                    ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: Received command ID" << (int) cmd.id << ".");
                     break;
             }
 
             m_valid_msgs_received = m_msgs_received - sbgc_parser.get_parse_error_count();
             const double valid_perc = 100.0 * m_valid_msgs_received / m_msgs_received;
             ROS_INFO_STREAM_THROTTLE(
-                    2.0, "[Gimbal]: Received " << m_valid_msgs_received << "/" << m_msgs_received
+                    1.0, "[Gimbal]: Received " << m_valid_msgs_received << "/" << m_msgs_received
                                                << " valid messages so far (" << valid_perc << "%).");
         }
     }
@@ -250,7 +250,7 @@ namespace gimbal {
 
         if (std::strcmp(param_id, EULER_ORDER_PARAM_ID) == 0) {
             // | ----------------------- EULER_ORDER ---------------------- |
-            const uint32_t value = *((uint32_t * )(&param_value.param_value));
+            const uint32_t value = *((uint32_t *) (&param_value.param_value));
             if (value >= 0 && value < static_cast<uint32_t>(euler_order_t::unknown)) {
                 m_euler_ordering = static_cast<euler_order_t>(value);
                 ROS_INFO_THROTTLE(1.0, "[Gimbal]: %s parameter is %d (raw is %f, type is %u).",
@@ -385,9 +385,9 @@ namespace gimbal {
         c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
 
         // 737 units stands for 90 deg/sec (1 unit is 0,1220740379 degree/sec)
-        c.data[PITCH_IDX].speed = m_speed_pitch;
-        c.data[ROLL_IDX].speed = m_speed_roll;
-        c.data[YAW_IDX].speed = m_speed_yaw;
+        c.data[PITCH_IDX].speed = static_cast<int16_t>(std::round(m_speed_pitch));
+        c.data[ROLL_IDX].speed = static_cast<int16_t>(std::round(m_speed_roll));
+        c.data[YAW_IDX].speed = static_cast<int16_t>(std::round(m_speed_yaw));
 
         ROS_INFO(
                 "[Gimbal]: |System -> Driver| Sending mount control command\n\t\tpitch: %.0fdeg\n\t\troll: %.0fdeg\n\t\tyaw: %.0fdeg).",
@@ -446,5 +446,4 @@ namespace gimbal {
 
 }  // namespace gimbal
 
-PLUGINLIB_EXPORT_CLASS(gimbal::Gimbal, nodelet::Nodelet
-);
+PLUGINLIB_EXPORT_CLASS(gimbal::Gimbal, nodelet::Nodelet)
