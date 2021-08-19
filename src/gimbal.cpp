@@ -63,6 +63,8 @@ namespace gimbal {
 
             m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
             m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
+            m_pub_orientation_pry = m_nh.advertise<mrs_msgs::GimbalPRY>("attitude_out_pry", 10);
+
 
             m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
             m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
@@ -103,7 +105,14 @@ namespace gimbal {
         SBGC_cmd_data_stream_interval_t c = {0};
         ROS_INFO("[Gimbal]: Requesting data.");
         c.cmd_id = SBGC_CMD_REALTIME_DATA_CUSTOM;
-        c.interval = 1;
+        /*
+         * According to the Serial API documentation
+         * (https://www.basecamelectronics.com/serialapi/, page 51-52)
+         * interval 1 means that interval between messages will be 0.8ms.
+         * The reality was 22-24ms, so by bruteforce we found correct
+         * value 3 stands for 3-4ms cycles.
+         * */
+        c.interval = 3;
         c.config.cmd_realtime_data_custom.flags = request_data_flags;
         c.sync_to_data = true;
         return SBGC_cmd_data_stream_interval_send(c, Gimbal::sbgc_parser);
@@ -304,6 +313,14 @@ namespace gimbal {
 
         /* Process the gimbal orientation frame //{ */
         if (m_request_data_flags & cmd_realtime_data_custom_flags_stator_rotor_angle) {
+            auto msg_pry = boost::make_shared<mrs_msgs::GimbalPRY>();
+
+            msg_pry->pitch = data.stator_rotor_angle[1];
+            msg_pry->roll = data.stator_rotor_angle[0];
+            msg_pry->yaw = data.stator_rotor_angle[2];
+
+            m_pub_orientation_pry.publish(msg_pry);
+
             // convert the data to a quaterion
             const double roll = units2rads * data.stator_rotor_angle[0];
             const double pitch = -units2rads * data.stator_rotor_angle[1];

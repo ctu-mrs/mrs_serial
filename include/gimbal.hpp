@@ -227,6 +227,7 @@ namespace gimbal {
 
         ros::Publisher m_pub_attitude;
         ros::Publisher m_pub_command;
+        ros::Publisher m_pub_orientation_pry;
 
         tf2_ros::TransformBroadcaster m_pub_transform;
 
