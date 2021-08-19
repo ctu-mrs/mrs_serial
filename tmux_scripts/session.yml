@@ -1,0 +1,22 @@
+name: simulation
+root: ./
+startup_window: status
+pre_window: export UAV_NAME=uav1;
+windows:
+  - roscore:
+      layout: tiled
+      panes:
+        - roscore
+  - rviz:
+      layout: tiled
+      panes:
+        - waitForRos; rviz -d $(rospack find mrs_serial)/rviz/gimbal.rviz
+        - waitForRos; rosrun rqt_gui rqt_gui
+  - gimbal:
+      layout: tiled
+      panes:
+        -  waitForRos; roslaunch mrs_serial gimbal.launch
+  - jugger:
+      layout: tiled
+      panes:
+        - waitForRos; rosrun plotjuggler plotjuggler

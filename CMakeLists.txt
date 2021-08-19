@@ -11,11 +11,16 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   std_msgs
   mrs_lib
+  dynamic_reconfigure
+  )
+
+generate_dynamic_reconfigure_options(
+  config/gimbal.cfg
   )
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES BacaProtocol NmeaParser VioImu
+  LIBRARIES BacaProtocol NmeaParser VioImu Gimbal
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
   )
 
@@ -25,25 +30,26 @@ include_directories(
   )
 
 add_library(VioImu src/vio_imu.cpp src/serial_port.cpp)
-
 target_link_libraries(VioImu
   ${catkin_LIBRARIES}
   )
 
 add_library(NmeaParser src/nmea_parser.cpp src/serial_port.cpp)
-
 target_link_libraries(NmeaParser
   ${catkin_LIBRARIES}
   )
 
 add_library(BacaProtocol src/baca_protocol.cpp src/serial_port.cpp)
-
 target_link_libraries(BacaProtocol
   ${catkin_LIBRARIES}
   )
 
 add_library(Servo src/servo.cpp src/serial_port.cpp)
-
 target_link_libraries(Servo
+  ${catkin_LIBRARIES}
+  )
+
+add_library(Gimbal src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp)
+target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
