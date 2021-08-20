@@ -62,6 +62,7 @@ namespace gimbal {
             m_tim_receiving = m_nh.createTimer(ros::Duration(0.001), &Gimbal::receiving_loop, this);
 
             m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
+            m_pub_speed = m_nh.advertise<geometry_msgs::Vector3>("speed_out", 10);
             m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
             m_pub_orientation_pry = m_nh.advertise<mrs_msgs::GimbalPRY>("attitude_out_pry", 10);
 
@@ -110,9 +111,9 @@ namespace gimbal {
          * (https://www.basecamelectronics.com/serialapi/, page 51-52)
          * interval 1 means that interval between messages will be 0.8ms.
          * The reality was 22-24ms, so by bruteforce we found correct
-         * value 3 stands for 3-4ms cycles.
+         * value 4 stands for 3-4ms cycles.
          * */
-        c.interval = 3;
+        c.interval = m_interval;
         c.config.cmd_realtime_data_custom.flags = request_data_flags;
         c.sync_to_data = true;
         return SBGC_cmd_data_stream_interval_send(c, Gimbal::sbgc_parser);
@@ -137,10 +138,10 @@ namespace gimbal {
                 case SBGC_CMD_REALTIME_DATA_CUSTOM: {
                     SBGC_cmd_realtime_data_custom_t msg = {0};
                     if (SBGC_cmd_realtime_data_custom_unpack(msg, m_request_data_flags, cmd) == 0) {
-                        ROS_INFO_THROTTLE(2.0, "[Gimbal]: Received realtime custom data.");
+                        ROS_INFO_THROTTLE(1.0, "[Gimbal]: Received realtime custom data.");
                         process_custom_data_msg(msg);
                     } else {
-                        ROS_ERROR_THROTTLE(2.0,
+                        ROS_ERROR_THROTTLE(1.0,
                                            "[Gimbal]: Received realtime custom data, but failed to unpack (parsed %u/%u bytes)!",
                                            cmd.pos, cmd.len);
                     }
@@ -349,6 +350,22 @@ namespace gimbal {
             m_pub_transform.sendTransform(tf);
         }
         //}
+
+        /* Process the gimbal speed //{ */
+        if (m_request_data_flags & cmd_realtime_data_custom_flags_stator_rotor_angle) {
+            auto msg_speed = boost::make_shared<geometry_msgs::Vector3>();
+
+            const auto roll_speed = data.target_speed[0] * 0.06103701895;
+            const auto yaw_speed = data.target_speed[1] * 0.06103701895;
+            const auto pitch_speed = data.target_speed[2] * 0.06103701895;
+
+            msg_speed->x = roll_speed;
+            msg_speed->y = pitch_speed;
+            msg_speed->z = yaw_speed;
+
+            m_pub_speed.publish(msg_speed);
+        }
+        //}
     }
     //}
 
@@ -401,7 +418,7 @@ namespace gimbal {
         c.data[ROLL_IDX].angle = static_cast<int16_t>(std::round(roll / units2rads));
         c.data[YAW_IDX].angle = static_cast<int16_t>(std::round(-yaw / units2rads));
 
-        // 737 units stands for 90 deg/sec (1 unit is 0,1220740379 degree/sec)
+        // 1 unit is 0,1220740379 degree/sec IN THIS CASE (read serial api documentation)
         c.data[PITCH_IDX].speed = static_cast<int16_t>(std::round(m_speed_pitch));
         c.data[ROLL_IDX].speed = static_cast<int16_t>(std::round(m_speed_roll));
         c.data[YAW_IDX].speed = static_cast<int16_t>(std::round(m_speed_yaw));
