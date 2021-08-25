@@ -68,6 +68,7 @@ private:
 
   ros::Publisher status_publisher;
   ros::Publisher baca_protocol_publisher_;
+  ros::Publisher baca_protocol_debug_publisher_;
 
   ros::Subscriber raw_message_subscriber;
 
@@ -118,13 +119,14 @@ void Led::onInit() {
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_publisher_       = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_debug_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out_debug", 1);
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &Led::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
-  all_service_server_  = nh_.advertiseService("all_in", &Led::callbackAll, this);
-  led_service_server_  = nh_.advertiseService("led_in", &Led::callbackLed, this);
-  ouster_service_server_  = nh_.advertiseService("ouster_in", &Led::callbackOuster, this);
+  all_service_server_    = nh_.advertiseService("all_in", &Led::callbackAll, this);
+  led_service_server_    = nh_.advertiseService("led_in", &Led::callbackLed, this);
+  ouster_service_server_ = nh_.advertiseService("ouster_in", &Led::callbackOuster, this);
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] test test:", ros::this_node::getName().c_str());
@@ -229,7 +231,7 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
   // 0 - turn off
   // 1 - turn on
   // 2 - do not change
-  
+
   std::vector<uint8_t> payl;
   payl.push_back(0x66);
   payl.push_back(desired_state);
@@ -237,12 +239,15 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
   payl.push_back(desired_state);
   payl.push_back(0x02);
 
-  ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << payl[0]);
+  for (size_t i = 0; i < payl.size(); i++) {
+    ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << payl[i]);
+  }
 
   std::scoped_lock lock(mutex_msg);
-  uint8_t          payload_size = payl.size();
-  uint8_t          checksum     = 0;
-  uint16_t         it           = 0;
+  /* uint8_t          payload_size = payl.size(); */
+  uint8_t  payload_size = 5;
+  uint8_t  checksum     = 0;
+  uint16_t it           = 0;
 
   uint8_t out_buffer[payload_size + 3];
 
@@ -259,6 +264,14 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
   out_buffer[it] = checksum;
 
   serial_port_.sendCharArray(out_buffer, payload_size + 3);
+
+  mrs_msgs::BacaProtocol msg;
+  msg.stamp = ros::Time::now();
+  for (uint8_t i = 0; i < payload_size + 3; i++) {
+    msg.payload.push_back(out_buffer[i]);
+  }
+  baca_protocol_debug_publisher_.publish(msg);
+
 
   res.success = true;
   res.message = "Callback All";
@@ -277,7 +290,7 @@ bool Led::callbackLed(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
   // 0 - turn off
   // 1 - turn on
   // 2 - do not change
-  
+
   std::vector<uint8_t> payl;
   payl.push_back(0x66);
   payl.push_back(desired_state);
@@ -325,7 +338,7 @@ bool Led::callbackOuster(std_srvs::SetBool::Request &req, std_srvs::SetBool::Res
   // 0 - turn off
   // 1 - turn on
   // 2 - do not change
-  
+
   std::vector<uint8_t> payl;
   payl.push_back(0x66);
   payl.push_back(0x02);
@@ -474,24 +487,24 @@ void Led::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t ch
   /*     } */
   /*   } */
   /* } else { */
-    /* General serial message */
-    if (checksum_correct) {
-      received_msg_ok++;
-    }
-    mrs_msgs::BacaProtocol msg;
-    msg.stamp = ros::Time::now();
-    for (uint8_t i = 0; i < payload_size; i++) {
-      msg.payload.push_back(input_buffer[i]);
-    }
-    msg.checksum_received   = checksum_rec;
-    msg.checksum_calculated = checksum;
-    msg.checksum_correct    = checksum_correct;
-    try {
-      baca_protocol_publisher_.publish(msg);
-    }
-    catch (...) {
-      ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", baca_protocol_publisher_.getTopic().c_str());
-    }
+  /* General serial message */
+  if (checksum_correct) {
+    received_msg_ok++;
+  }
+  mrs_msgs::BacaProtocol msg;
+  msg.stamp = ros::Time::now();
+  for (uint8_t i = 0; i < payload_size; i++) {
+    msg.payload.push_back(input_buffer[i]);
+  }
+  msg.checksum_received   = checksum_rec;
+  msg.checksum_calculated = checksum;
+  msg.checksum_correct    = checksum_correct;
+  try {
+    baca_protocol_publisher_.publish(msg);
+  }
+  catch (...) {
+    ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", baca_protocol_publisher_.getTopic().c_str());
+  }
   /* } */
 }
 
