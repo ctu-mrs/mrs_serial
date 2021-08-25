@@ -21,3 +21,9 @@
     <description>Servo nodelet</description>
   </class>
 </library>
+
+<library path="lib/libLed">
+  <class name="led/Led" type="led::Led" base_class_type="nodelet::Nodelet">
+    <description>Led nodelet</description>
+  </class>
+</library>

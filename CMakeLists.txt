@@ -47,3 +47,9 @@ add_library(Servo src/servo.cpp src/serial_port.cpp)
 target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
+
+add_library(Led src/led.cpp src/serial_port.cpp)
+
+target_link_libraries(Led
+  ${catkin_LIBRARIES}
+  )
