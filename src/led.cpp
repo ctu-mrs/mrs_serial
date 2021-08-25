@@ -68,7 +68,7 @@ private:
 
   ros::Publisher status_publisher;
   ros::Publisher baca_protocol_publisher_;
-  ros::Publisher baca_protocol_debug_publisher_;
+  /* ros::Publisher baca_protocol_debug_publisher_; */
 
   ros::Subscriber raw_message_subscriber;
 
@@ -120,7 +120,7 @@ void Led::onInit() {
 
   // Publishers
   baca_protocol_publisher_       = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
-  baca_protocol_debug_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out_debug", 1);
+  /* baca_protocol_debug_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out_debug", 1); */
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &Led::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -235,9 +235,9 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
   std::vector<uint8_t> payl;
   payl.push_back(0x66);
   payl.push_back(desired_state);
-  payl.push_back(0x02);
+  payl.push_back(0x00);
   payl.push_back(desired_state);
-  payl.push_back(0x02);
+  payl.push_back(0x00);
 
   for (size_t i = 0; i < payl.size(); i++) {
     ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << payl[i]);
@@ -265,13 +265,12 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
 
   serial_port_.sendCharArray(out_buffer, payload_size + 3);
 
-  mrs_msgs::BacaProtocol msg;
-  msg.stamp = ros::Time::now();
-  for (uint8_t i = 0; i < payload_size + 3; i++) {
-    msg.payload.push_back(out_buffer[i]);
-  }
-  baca_protocol_debug_publisher_.publish(msg);
-
+  /* mrs_msgs::BacaProtocol msg; */
+  /* msg.stamp = ros::Time::now(); */
+  /* for (uint8_t i = 0; i < payload_size + 3; i++) { */
+  /*   msg.payload.push_back(out_buffer[i]); */
+  /* } */
+  /* baca_protocol_debug_publisher_.publish(msg); */
 
   res.success = true;
   res.message = "Callback All";

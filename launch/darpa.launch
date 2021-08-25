@@ -2,9 +2,9 @@
 
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
   <arg name="name" default="" />
-  <arg name="portname" default="/dev/ttyUSB0" />
+  <arg name="portname" default="/dev/MRS_MODULE1" />
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
-  <arg name="baudrate" default="115200" /> 
+  <arg name="baudrate" default="9600" /> 
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <!-- will it run using GNU debugger? -->
@@ -24,7 +24,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the nodelet -->
-    <node pkg="nodelet" type="nodelet" name="led" args="$(arg nodelet) led/Led $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+    <node pkg="nodelet" type="nodelet" name="serial_led" args="$(arg nodelet) led/Led $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
@@ -40,8 +40,12 @@
       <remap from="~baca_protocol_out" to="~received_message" />
 
         <!-- Subscribers -->
-      <remap from="~baca_protocol_in" to="~send_message" />
       <remap from="~raw_in" to="~send_raw_message" />
+
+        <!-- Services -->
+      <remap from="~all_in" to="~set_all" />
+      <remap from="~led_in" to="~set_led" />
+      <remap from="~ouster_in" to="~set_ouster" />
 
     </node>
 
