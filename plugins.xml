@@ -27,3 +27,9 @@
     <description>Led nodelet</description>
   </class>
 </library>
+
+<library path="lib/libUltrasound">
+  <class name="ultrasound/Ultrasound" type="ultrasound::Ultrasound" base_class_type="nodelet::Nodelet">
+    <description>Ultrasound nodelet</description>
+  </class>
+</library>

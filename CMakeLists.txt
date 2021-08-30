@@ -53,3 +53,9 @@ add_library(Led src/led.cpp src/serial_port.cpp)
 target_link_libraries(Led
   ${catkin_LIBRARIES}
   )
+
+add_library(Ultrasound src/ultrasound.cpp src/serial_port.cpp)
+
+target_link_libraries(Ultrasound
+  ${catkin_LIBRARIES}
+  )
