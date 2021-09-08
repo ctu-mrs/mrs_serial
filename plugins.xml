@@ -28,6 +28,12 @@
   </class>
 </library>
 
+<library path="lib/libEstop">
+  <class name="estop/Estop" type="estop::Estop" base_class_type="nodelet::Nodelet">
+    <description>Estop nodelet</description>
+  </class>
+</library>
+
 <library path="lib/libUltrasound">
   <class name="ultrasound/Ultrasound" type="ultrasound::Ultrasound" base_class_type="nodelet::Nodelet">
     <description>Ultrasound nodelet</description>

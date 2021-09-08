@@ -54,6 +54,12 @@ target_link_libraries(Led
   ${catkin_LIBRARIES}
   )
 
+add_library(Estop src/estop.cpp src/serial_port.cpp)
+
+target_link_libraries(Estop
+  ${catkin_LIBRARIES}
+  )
+
 add_library(Ultrasound src/ultrasound.cpp src/serial_port.cpp)
 
 target_link_libraries(Ultrasound
