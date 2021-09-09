@@ -49,7 +49,7 @@ private:
 
   bool estop_triggered_ = false;
   bool eland_called_    = false;
-  bool null_trakcer_    = false;
+  bool null_tracker_    = false;
 
   ros::Timer serial_timer_;
   ros::Timer poll_timer_;
@@ -254,22 +254,21 @@ void Estop::callbackEstopTimer(const ros::TimerEvent &event) {
       std_srvs::Trigger trig;
       service_eland_.call(trig);
 
-      std_srvs::SetBool set_bool;
-      set_bool.request.data = false;
-      service_set_leds_.call(set_bool);
-
       eland_called_ = true;
 
     } else {
 
       ROS_INFO("[Estop]: waiting for null tracker");
 
-      if (null_trakcer_) {
+      if (null_tracker_) {
 
         ROS_INFO("[Estop]: got null tracker, turning off ouster and terminating");
         std_srvs::SetBool set_bool;
         set_bool.request.data = false;
         service_set_ouster_.call(set_bool);
+
+        set_bool.request.data = false;
+        service_set_leds_.call(set_bool);
 
         serial_timer_.stop();
         poll_timer_.stop();
@@ -343,9 +342,9 @@ void Estop::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCons
   }
 
   if (msg->active_tracker == "NullTracker") {
-    null_trakcer_ = true;
+    null_tracker_ = true;
   } else {
-    null_trakcer_ = false;
+    null_tracker_ = false;
   }
 }
 
