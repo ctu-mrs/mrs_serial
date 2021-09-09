@@ -59,6 +59,7 @@ private:
   mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_eland_;
   mrs_lib::ServiceClientHandler<std_srvs::SetBool> service_set_leds_;
   mrs_lib::ServiceClientHandler<std_srvs::SetBool> service_set_ouster_;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool> service_set_all_;
 
   void interpretSerialData(uint8_t data);
   void callbackSerialTimer(const ros::TimerEvent &event);
@@ -197,6 +198,7 @@ void Estop::onInit() {
   service_eland_      = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "eland_out");
   service_set_leds_   = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_leds_out");
   service_set_ouster_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_ouster_out");
+  service_set_all_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_all_out");
 
   is_initialized_ = true;
 }
@@ -262,13 +264,10 @@ void Estop::callbackEstopTimer(const ros::TimerEvent &event) {
 
       if (null_tracker_) {
 
-        ROS_INFO("[Estop]: got null tracker, turning off ouster and terminating");
+        ROS_INFO("[Estop]: got null tracker, turning off ouster and lights and terminating");
         std_srvs::SetBool set_bool;
         set_bool.request.data = false;
-        service_set_ouster_.call(set_bool);
-
-        set_bool.request.data = false;
-        service_set_leds_.call(set_bool);
+        service_set_all_.call(set_bool);
 
         serial_timer_.stop();
         poll_timer_.stop();

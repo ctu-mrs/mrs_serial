@@ -47,6 +47,7 @@
       <remap from="~eland_out" to="control_manager/eland" />
       <remap from="~set_leds_out" to="serial_led/set_led" />
       <remap from="~set_ouster_out" to="serial_led/set_ouster" />
+      <remap from="~set_all_out" to="serial_led/set_all" />
 
     </node>
 
