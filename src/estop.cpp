@@ -198,7 +198,7 @@ void Estop::onInit() {
   service_eland_      = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "eland_out");
   service_set_leds_   = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_leds_out");
   service_set_ouster_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_ouster_out");
-  service_set_all_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_all_out");
+  service_set_all_    = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "set_all_out");
 
   is_initialized_ = true;
 }
@@ -361,18 +361,19 @@ void Estop::interpretSerialData(uint8_t single_character) {
 
     if (response_msg_ == normal_response_msg_) {
       ROS_INFO("[Estop]: got normal response from xbee");
+      response_msg_.clear();
     }
 
     else if (response_msg_ == estop_response_msg_) {
       ROS_INFO("[Estop]: got ESTOP response from xbee");
+      response_msg_.clear();
       estop_triggered_ = true;
     }
 
     else {
-      ROS_INFO("[Estop]: got something else");
+      ROS_INFO("[Estop]: got non-defined response from xbee");
+      response_msg_.erase(response_msg_.begin());  // Not nice, but our vector is very small
     }
-
-    response_msg_.clear();
   }
 }
 
