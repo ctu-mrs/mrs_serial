@@ -6,6 +6,7 @@
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
   <arg name="baudrate" default="9600" /> 
   <arg name="profiler" default="$(optenv PROFILER false)" />
+  <arg name="serial_rate" default="5000" />
 
   <!-- will it run using GNU debugger? -->
   <arg name="DEBUG" default="false" />
@@ -33,6 +34,7 @@
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
       <param name="baudrate" type="int" value="$(arg baudrate)" />
       <param name="portname" value="$(arg portname)"/>
+      <param name="serial_rate" value="$(arg serial_rate)"/>
       <param name="use_timeout" value="false"/>
 
       <!-- Publishers -->
