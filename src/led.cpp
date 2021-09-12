@@ -115,7 +115,7 @@ void Led::onInit() {
   nh_.param("baudrate", baudrate_, 115200);
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("use_timeout", use_timeout, true);
-  nh_.param("serial_rate", serial_rate_, 5000);
+  nh_.param("serial_rate", serial_rate_, 50);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
