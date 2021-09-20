@@ -47,8 +47,9 @@ private:
     EXPECTING_CHECKSUM
   };
 
-  bool estop_triggered_ = false;
-  bool null_tracker_    = false;
+  std::atomic<bool> estop_triggered_          = false;
+  std::atomic<bool> was_outside_null_tracker_ = false;
+  std::atomic<bool> null_tracker_             = false;
 
   ros::Timer serial_timer_;
   ros::Timer poll_timer_;
@@ -333,10 +334,12 @@ void Estop::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCons
     return;
   }
 
-  if (msg->active_tracker == "NullTracker") {
+  if (msg->active_tracker != "NullTracker") {
+    was_outside_null_tracker_ = true;
+  }
+
+  if (msg->active_tracker == "NullTracker" && was_outside_null_tracker_) {
     null_tracker_ = true;
-  } else {
-    null_tracker_ = false;
   }
 }
 
