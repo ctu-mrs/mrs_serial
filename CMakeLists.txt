@@ -49,7 +49,20 @@ target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
 
-add_library(Gimbal src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp)
-target_link_libraries(Gimbal
+add_library(Led src/led.cpp src/serial_port.cpp)
+
+target_link_libraries(Led
+  ${catkin_LIBRARIES}
+  )
+
+add_library(Estop src/estop.cpp src/serial_port.cpp)
+
+target_link_libraries(Estop
+  ${catkin_LIBRARIES}
+  )
+
+add_library(Ultrasound src/ultrasound.cpp src/serial_port.cpp)
+
+target_link_libraries(Ultrasound
   ${catkin_LIBRARIES}
   )

@@ -22,8 +22,20 @@
   </class>
 </library>
 
-<library path="lib/libGimbal">
-  <class name="gimbal/Gimbal" type="gimbal::Gimbal" base_class_type="nodelet::Nodelet">
-    <description>A basic driver for a gimbal over MAVLink</description>
+<library path="lib/libLed">
+  <class name="led/Led" type="led::Led" base_class_type="nodelet::Nodelet">
+    <description>Led nodelet</description>
+  </class>
+</library>
+
+<library path="lib/libEstop">
+  <class name="estop/Estop" type="estop::Estop" base_class_type="nodelet::Nodelet">
+    <description>Estop nodelet</description>
+  </class>
+</library>
+
+<library path="lib/libUltrasound">
+  <class name="ultrasound/Ultrasound" type="ultrasound::Ultrasound" base_class_type="nodelet::Nodelet">
+    <description>Ultrasound nodelet</description>
   </class>
 </library>
