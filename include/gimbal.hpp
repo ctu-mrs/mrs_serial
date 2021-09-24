@@ -1,5 +1,3 @@
-/* some code copied from MAVLInk_DroneLights by Juan Pedro López */
-
 #pragma once
 
 #include <ros/package.h>
@@ -21,7 +19,6 @@
 
 #include <mrs_msgs/GimbalPRY.h>
 #include <dynamic_reconfigure/server.h>
-#include "mavlink/mavlink.h"
 #include "SBGC_lib/SBGC.h"
 #include "serial_port.h"
 #include "mrs_serial/GimbalParamsConfig.h"
@@ -42,8 +39,6 @@ namespace gimbal {
     private:
         /* enums and struct defines //{ */
 
-        static constexpr char EULER_ORDER_PARAM_ID[16] = "G_EULER_ORDER\0";
-
         enum class euler_order_t {
             pitch_roll_yaw = 0,
             roll_pitch_yaw = 1,
@@ -52,85 +47,6 @@ namespace gimbal {
             yaw_roll_pitch = 4,
             yaw_pitch_roll = 5,
             unknown,
-        };
-
-        enum class angle_input_mode_t {
-            angle_body_frame = 0,
-            angular_rate = 1,
-            angle_absolute_frame = 2,
-        };
-
-        /* struct mount_config_t //{ */
-        struct mount_config_t {
-            bool stabilize_roll;
-            bool stabilize_pitch;
-            bool stabilize_yaw;
-            angle_input_mode_t roll_input_mode;
-            angle_input_mode_t pitch_input_mode;
-            angle_input_mode_t yaw_input_mode;
-
-            bool from_rosparam(ros::NodeHandle &nh) {
-                mrs_lib::ParamLoader pl(nh);
-                pl.loadParam("mount/stabilize_roll", stabilize_roll);
-                pl.loadParam("mount/stabilize_pitch", stabilize_pitch);
-                pl.loadParam("mount/stabilize_yaw", stabilize_yaw);
-
-                const int roll_mode = pl.loadParam2<int>("mount/roll_input_mode");
-                const int pitch_mode = pl.loadParam2<int>("mount/pitch_input_mode");
-                const int yaw_mode = pl.loadParam2<int>("mount/yaw_input_mode");
-
-                bool ret = pl.loadedSuccessfully();
-
-                if (roll_mode >= 0 && roll_mode < 3)
-                    roll_input_mode = static_cast<angle_input_mode_t>(roll_mode);
-                else {
-                    ROS_ERROR(
-                            "[Gimbal]: Invalid value of roll input mode (got %d)!\nValid values are:\n\t0\t(angle body frame)\n\t1\t(angular rate)\n\t2\t(angle absolute "
-                            "frame)",
-                            roll_mode);
-                    ret = false;
-                }
-
-                if (pitch_mode >= 0 && pitch_mode < 3)
-                    pitch_input_mode = static_cast<angle_input_mode_t>(pitch_mode);
-                else {
-                    ROS_ERROR(
-                            "[Gimbal]: Invalid value of pitch input mode (got %d)!\nValid values are:\n\t0\t(angle body frame)\n\t1\t(angular rate)\n\t2\t(angle absolute "
-                            "frame)",
-                            roll_mode);
-                    ret = false;
-                }
-
-                if (yaw_mode >= 0 && yaw_mode < 3)
-                    yaw_input_mode = static_cast<angle_input_mode_t>(yaw_mode);
-                else {
-                    ROS_ERROR(
-                            "[Gimbal]: Invalid value of yaw input mode (got %d)!\nValid values are:\n\t0\t(angle body frame)\n\t1\t(angular rate)\n\t2\t(angle absolute "
-                            "frame)",
-                            roll_mode);
-                    ret = false;
-                }
-
-                return ret;
-            }
-        } m_mount_config;
-        //}
-
-        // https://mavlink.io/en/messages/common.html
-
-        enum MAV_CMD {
-            MAV_CMD_DO_MOUNT_CONFIGURE = 204,  //< Mission command to configure a camera or antenna mount
-            MAV_CMD_DO_MOUNT_CONTROL = 205,    //< Mission command to control a camera or antenna mount
-        };
-
-        enum MAV_MOUNT_MODE {
-            MAV_MOUNT_MODE_RETRACT = 0,            //<	Load and keep safe position (Roll,Pitch,Yaw) from permant memory and stop stabilization
-            MAV_MOUNT_MODE_NEUTRAL = 1,            //<	Load and keep neutral position (Roll,Pitch,Yaw) from permanent memory.
-            MAV_MOUNT_MODE_MAVLINK_TARGETING = 2,  //<	Load neutral position and start MAVLink Roll,Pitch,Yaw control with stabilization
-            MAV_MOUNT_MODE_RC_TARGETING = 3,       //<	Load neutral position and start RC Roll,Pitch,Yaw control with stabilization
-            MAV_MOUNT_MODE_GPS_POINT = 4,          //<	Load neutral position and start to point to Lat,Lon,Alt
-            MiAV_MOUNT_MODE_SYSID_TARGET = 5,       //<	Gimbal tracks system with specified system ID
-            MAV_MOUNT_MODE_HOME_LOCATION = 6,      //<	Gimbal tracks home location
         };
 
         //}
@@ -173,8 +89,6 @@ namespace gimbal {
         bool rotate_gimbal_PRY(double pitch, double roll, double yaw);
 
         void receiving_loop([[maybe_unused]] const ros::TimerEvent &evt);
-
-        void process_param_value_msg(const mavlink_param_value_t &param_value);
 
         void process_custom_data_msg(const SBGC_cmd_realtime_data_custom_t &data);
 
@@ -243,15 +157,6 @@ namespace gimbal {
         int m_baudrate;
         ros::Duration m_heartbeat_period;
 
-        int m_driver_system_id;
-        int m_driver_component_id;
-
-        int m_gimbal_system_id;
-        int m_gimbal_component_id;
-
-        std::vector<int> m_stream_request_ids;
-        std::vector<int> m_stream_request_rates;
-
         std::string m_stabilization_frame_id;
         std::string m_base_frame_id;
         std::string m_stabilized_frame_id;
@@ -280,7 +185,6 @@ namespace gimbal {
         double m_speed_roll = 0;
 
         int16_t m_interval;
-        euler_order_t m_euler_ordering = euler_order_t::unknown;
 
     public:
 //        FOR DYNAMIC PARAMS

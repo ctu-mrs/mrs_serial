@@ -18,27 +18,7 @@ namespace gimbal {
         pl.loadParam("stabilized_frame_id", m_stabilized_frame_id);
         pl.loadParam("base_frame_id", m_base_frame_id);
 
-        pl.loadParam("mavlink/heartbeat_period", m_heartbeat_period, ros::Duration(1.0));
-        pl.loadParam("mavlink/driver/system_id", m_driver_system_id);
-        pl.loadParam("mavlink/driver/component_id", m_driver_component_id);
-        pl.loadParam("mavlink/gimbal/system_id", m_gimbal_system_id);
-        pl.loadParam("mavlink/gimbal/component_id", m_gimbal_component_id);
-
-        pl.loadParam("stream_requests/ids", m_stream_request_ids);
-        pl.loadParam("stream_requests/rates", m_stream_request_rates);
-
-        if (m_stream_request_ids.size() != m_stream_request_rates.size()) {
-            ROS_ERROR(
-                    "[Gimbal]: Number of requested stream IDs has to be the same as the number of rates! Ending.");
-            ros::shutdown();
-            return;
-        }
-
-        if (!m_mount_config.from_rosparam(m_nh)) {
-            ROS_ERROR("[Gimbal]: Failed to load mount configuration parameters! Ending.");
-            ros::shutdown();
-            return;
-        }
+        pl.loadParam("heartbeat_period", m_heartbeat_period, ros::Duration(1.0));
 
         if (!pl.loadedSuccessfully()) {
             ROS_ERROR("[Gimbal]: Some compulsory parameters could not be loaded! Ending.");
@@ -249,32 +229,6 @@ namespace gimbal {
     void Gimbal::cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry) {
         rotate_gimbal_PRY_between_frames(cmd_pry->pitch, cmd_pry->roll, cmd_pry->yaw,
                                          m_base_frame_id, m_stabilization_frame_id);
-    }
-    //}
-
-    /* process_param_value_msg() method //{ */
-    void Gimbal::process_param_value_msg(const mavlink_param_value_t &param_value) {
-        char param_id[17];
-        param_id[16] = 0;
-        std::copy_n(std::begin(param_value.param_id), 16, param_id);
-
-        if (std::strcmp(param_id, EULER_ORDER_PARAM_ID) == 0) {
-            // | ----------------------- EULER_ORDER ---------------------- |
-            const uint32_t value = *((uint32_t *) (&param_value.param_value));
-            if (value >= 0 && value < static_cast<uint32_t>(euler_order_t::unknown)) {
-                m_euler_ordering = static_cast<euler_order_t>(value);
-                ROS_INFO_THROTTLE(1.0, "[Gimbal]: %s parameter is %d (raw is %f, type is %u).",
-                                  EULER_ORDER_PARAM_ID, (int) m_euler_ordering, param_value.param_value,
-                                  param_value.param_type);
-            } else {
-                ROS_ERROR("[Gimbal]: Unknown value of %s received: %f (type: %u), ignoring.", EULER_ORDER_PARAM_ID,
-                          param_value.param_value, param_value.param_type);
-                m_euler_ordering = euler_order_t::unknown;
-            }
-        } else {
-            ROS_DEBUG("[Gimbal]: Unhandled parameter value %s received with value %f (type: %u), ignoring.",
-                      param_id, param_value.param_value, param_value.param_type);
-        }
     }
     //}
 

@@ -39,3 +39,9 @@
     <description>Ultrasound nodelet</description>
   </class>
 </library>
+
+<library path="lib/libGimbal">
+  <class name="gimbal/Gimbal" type="gimbal::Gimbal" base_class_type="nodelet::Nodelet">
+    <description>A basic driver for a gimbal over the SBGC-API protocol</description>
+  </class>
+</library>
