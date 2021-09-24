@@ -231,28 +231,26 @@ uint8_t SBGC_cmd_realtime_data_custom_unpack(SBGC_cmd_realtime_data_custom_t &p,
     if (data_ordered_flags & cmd_realtime_data_custom_flags_stator_rotor_angle)
         cmd.readWordArr(p.stator_rotor_angle, 3);
 
-  if (data_ordered_flags & cmd_realtime_data_custom_flags_z_vector_h_vector)
-  {
-    for (int i = 0; i < 3; i++)
-      p.z_vector[i] = cmd.readFloat();
-    for (int i = 0; i < 3; i++)
-      p.h_vector[i] = cmd.readFloat();
-  }
+    if (data_ordered_flags & cmd_realtime_data_custom_flags_z_vector_h_vector) {
+        for (int i = 0; i < 3; i++)
+            p.z_vector[i] = cmd.readFloat();
+        for (int i = 0; i < 3; i++)
+            p.h_vector[i] = cmd.readFloat();
+    }
 
-  if (data_ordered_flags & cmd_realtime_data_custom_flags_encoder_raw24)
-    for (int i = 0; i < 3; i++)
-      p.encoder_raw24[i] = cmd.readLong();
+    if (data_ordered_flags & cmd_realtime_data_custom_flags_encoder_raw24)
+        for (int i = 0; i < 3; i++)
+            p.encoder_raw24[i] = cmd.readLong();
 
-  if (cmd.checkLimit()) return 0;
-  else return PARSER_ERROR_WRONG_DATA_SIZE;
+    if (cmd.checkLimit()) return 0;
+    else return PARSER_ERROR_WRONG_DATA_SIZE;
 }
 
 /*
 * Unpacks Read params object to command structure.
 * Returns 0 on success, PARSER_ERROR_XX code on fail.
 */
-uint8_t SBGC_cmd_read_params_3_unpack(SBGC_cmd_read_write_params_3_t& p, SerialCommand &cmd)
-{
+uint8_t SBGC_cmd_read_params_3_unpack(SBGC_cmd_read_write_params_3_t &p, SerialCommand &cmd) {
     p.profile_id = cmd.readByte();
     for (int i = 0; i < 3; ++i) {
         p.axis_pid[i].P = cmd.readByte();
@@ -320,6 +318,6 @@ uint8_t SBGC_cmd_read_params_3_unpack(SBGC_cmd_read_write_params_3_t& p, SerialC
     p.euler_order = cmd.readByte();
     p.cur_imu = cmd.readByte();
     p.cur_profile_id = cmd.readByte();
-    if(cmd.checkLimit()) return 0;
+    if (cmd.checkLimit()) return 0;
     else return PARSER_ERROR_WRONG_DATA_SIZE;
 }

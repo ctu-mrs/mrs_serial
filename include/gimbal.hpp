@@ -150,8 +150,10 @@ namespace gimbal {
 
         /* static constexpr uint32_t m_request_data_flags = cmd_realtime_data_custom_flags_target_angles | cmd_realtime_data_custom_flags_target_speed | cmd_realtime_data_custom_flags_stator_rotor_angle | cmd_realtime_data_custom_flags_encoder_raw24; */
         static constexpr uint32_t
-        m_request_data_flags =
-        cmd_realtime_data_custom_flags_z_vector_h_vector | cmd_realtime_data_custom_flags_stator_rotor_angle;
+                m_request_data_flags =
+                cmd_realtime_data_custom_flags_z_vector_h_vector |
+                cmd_realtime_data_custom_flags_stator_rotor_angle |
+                cmd_realtime_data_custom_flags_target_speed;
         static constexpr double units2rads = 0.02197265625 / 180.0 * M_PI;
 
         static constexpr int ROLL_IDX = 0;
@@ -196,12 +198,10 @@ namespace gimbal {
             const double roll = deg2rad(static_cast<double>(config.roll_angle));
             const double yaw = deg2rad(static_cast<double>(config.yaw_angle));
 
-            //m_speed_yaw = config.yaw_speed * 0.1220740379;
-            //m_speed_pitch = config.pitch_speed * 0.1220740379;
-            //m_speed_roll = config.roll_speed * 0.1220740379;
-            m_speed_yaw = config.yaw_speed;
-            m_speed_pitch = config.pitch_speed;
-            m_speed_roll = config.roll_speed;
+            m_speed_yaw = config.yaw_speed * 0.1220740379;
+            m_speed_pitch = config.pitch_speed * 0.1220740379;
+            m_speed_roll = config.roll_speed * 0.1220740379;
+            m_interval = config.interval;
 
             rotate_gimbal_PRY_between_frames(pitch, roll, yaw, m_base_frame_id, m_stabilization_frame_id);
 
@@ -226,7 +226,9 @@ namespace gimbal {
         ros::Subscriber m_sub_pry;
 
         ros::Publisher m_pub_attitude;
+        ros::Publisher m_pub_speed;
         ros::Publisher m_pub_command;
+        ros::Publisher m_pub_orientation_pry;
 
         tf2_ros::TransformBroadcaster m_pub_transform;
 
@@ -276,12 +278,14 @@ namespace gimbal {
         double m_speed_yaw = 0;
         double m_speed_pitch = 0;
         double m_speed_roll = 0;
+
+        int16_t m_interval;
         euler_order_t m_euler_ordering = euler_order_t::unknown;
 
     public:
 //        FOR DYNAMIC PARAMS
         boost::recursive_mutex m_config_mutex;
-        boost::shared_ptr <ReconfigureServer> reconfigure_server;
+        boost::shared_ptr<ReconfigureServer> reconfigure_server;
 
         /* onInit() //{ */
         void onInit() override;
