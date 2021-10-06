@@ -21,7 +21,7 @@
 #include <dynamic_reconfigure/server.h>
 #include "SBGC_lib/SBGC.h"
 #include "serial_port.h"
-#include "mrs_serial/GimbalParamsConfig.h"
+#include <mrs_serial/GimbalParamsConfig.h>
 
 namespace gimbal {
 

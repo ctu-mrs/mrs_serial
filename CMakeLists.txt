@@ -27,6 +27,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
 add_library(VioImu src/vio_imu.cpp src/serial_port.cpp)
