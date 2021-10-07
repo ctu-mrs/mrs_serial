@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  cmake_modules
   nodelet
   sensor_msgs
   mrs_msgs
