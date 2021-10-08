@@ -69,7 +69,16 @@ target_link_libraries(Ultrasound
   ${catkin_LIBRARIES}
   )
 
-add_library(Gimbal src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp)
+add_library(Gimbal
+  src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp
+  )
+
+add_dependencies(Gimbal
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_gencfg
+  )
+
 target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
