@@ -52,6 +52,7 @@ private:
   ros::Timer maintainer_timer_;
 
   ros::ServiceServer ser_send_int;
+  ros::ServiceServer ser_send_int_raw;
 
   void interpretSerialData(uint8_t data);
   void callbackSerialTimer(const ros::TimerEvent &event);
@@ -66,6 +67,7 @@ private:
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
   bool callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
+  bool callbackSendIntRaw([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
 
 
   uint8_t connectToSensor(void);
@@ -104,7 +106,6 @@ private:
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
 
-  std::mutex mutex_msg;
 
   ros::Time interval_      = ros::Time::now();
   ros::Time last_received_ = ros::Time::now();
@@ -134,7 +135,8 @@ void BacaProtocol::onInit() {
   nh_.param("serial_rate", serial_rate_, 5000);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
-  ser_send_int = nh_.advertiseService("send_int", &BacaProtocol::callbackSendInt, this);
+  ser_send_int     = nh_.advertiseService("send_int", &BacaProtocol::callbackSendInt, this);
+  ser_send_int_raw = nh_.advertiseService("send_int_raw", &BacaProtocol::callbackSendIntRaw, this);
 
   // Publishers
   std::string postfix_A = swap_garmins ? "_up" : "";
@@ -257,10 +259,9 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
 
   ROS_INFO_STREAM_THROTTLE(1.0, "SENDING: " << msg->payload[0]);
 
-  std::scoped_lock lock(mutex_msg);
-  uint8_t          payload_size = msg->payload.size();
-  uint8_t          checksum     = 0;
-  uint16_t         it           = 0;
+  uint8_t  payload_size = msg->payload.size();
+  uint8_t  checksum     = 0;
+  uint16_t it           = 0;
 
   uint8_t out_buffer[payload_size + 3];
 
@@ -301,6 +302,45 @@ void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg
 /* //{ callbackSendInt() */
 
 bool BacaProtocol::callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+
+  if (!is_initialized_) {
+    return false;
+  }
+
+  uint8_t  payload      = uint8_t(req.value);
+  uint8_t  payload_size = 1;
+  uint8_t  checksum     = 0;
+  uint16_t it           = 0;
+
+  uint8_t out_buffer[payload_size + 3];
+
+  out_buffer[it++] = 'b';
+  checksum += 'b';
+  out_buffer[it++] = payload_size;
+  checksum += payload_size;
+
+  out_buffer[it++] = payload;
+  checksum += payload;
+
+  out_buffer[it] = checksum;
+
+  serial_port_.sendCharArray(out_buffer, payload_size + 3);
+
+  char hex_charr[5];
+  std::sprintf(hex_charr, "%X", payload);
+  std::string hex_string(hex_charr);
+  ROS_WARN_STREAM("[BacaProtocol]: Sending: 0x" << hex_string);
+
+  res.success = true;
+  res.message = "sending int";
+
+  return true;
+}  // namespace baca_protocol
+//}
+
+/* //{ callbackSendIntRaw() */
+
+bool BacaProtocol::callbackSendIntRaw([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
 
   if (!is_initialized_) {
     return false;
