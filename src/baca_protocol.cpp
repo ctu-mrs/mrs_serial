@@ -1,4 +1,5 @@
 #include <ros/package.h>
+#include <sstream>
 #include <stdlib.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Range.h>
@@ -11,6 +12,7 @@
 #include <string>
 #include <mrs_msgs/BacaProtocol.h>
 #include <mrs_msgs/SerialRaw.h>
+#include <mrs_msgs/SetInt.h>
 
 #include <serial_port.h>
 
@@ -49,10 +51,7 @@ private:
   ros::Timer fake_timer_;
   ros::Timer maintainer_timer_;
 
-  ros::ServiceServer netgun_arm;
-  ros::ServiceServer netgun_safe;
-  ros::ServiceServer netgun_fire;
-
+  ros::ServiceServer ser_send_int;
 
   void interpretSerialData(uint8_t data);
   void callbackSerialTimer(const ros::TimerEvent &event);
@@ -65,6 +64,8 @@ private:
   void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
   void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
+
+  bool callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
 
 
   uint8_t connectToSensor(void);
@@ -98,7 +99,7 @@ private:
   int serial_buffer_size_ = 1024;
 
   std::string portname_;
-  int baudrate_;
+  int         baudrate_;
   std::string uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
@@ -132,6 +133,8 @@ void BacaProtocol::onInit() {
   nh_.param("swap_garmins", swap_garmins, false);
   nh_.param("serial_rate", serial_rate_, 5000);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
+
+  ser_send_int = nh_.advertiseService("send_int", &BacaProtocol::callbackSendInt, this);
 
   // Publishers
   std::string postfix_A = swap_garmins ? "_up" : "";
@@ -293,6 +296,37 @@ void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg
   serial_port_.sendCharArray(out_buffer, payload_size);
 }
 
+//}
+
+/* //{ callbackSendInt() */
+
+bool BacaProtocol::callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+
+  if (!is_initialized_) {
+    return false;
+  }
+
+  uint8_t payload      = uint8_t(req.value);
+  uint8_t payload_size = 1;
+  uint8_t out_buffer[payload_size];
+  out_buffer[0] = payload;
+
+  serial_port_.sendCharArray(out_buffer, payload_size);
+
+  /* std::stringstream sstream; */
+  /* sstream << std::hex << payload; */
+
+  /* std::string test = sstream.str(); */
+  char hex_charr[5];
+  std::sprintf(hex_charr, "%X", payload);
+  std::string hex_string(hex_charr);
+  ROS_WARN_STREAM("[BacaProtocol]: Sending: 0x" << hex_string);
+
+  res.success = true;
+  res.message = "sending int";
+
+  return true;
+}  // namespace baca_protocol
 //}
 
 // | ------------------------ routines ------------------------ |
