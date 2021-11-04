@@ -276,13 +276,13 @@ void VioImu::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t
 
     sensor_msgs::Imu imu;
 
-    imu.linear_acceleration.x = (double(acc_x) / 8192) * G;
-    imu.linear_acceleration.y = (double(acc_y) / 8192) * G;
-    imu.linear_acceleration.z = (double(acc_z) / 8192) * G;
+    imu.linear_acceleration.x = (double(acc_x) / 4096) * G;
+    imu.linear_acceleration.y = (double(acc_y) / 4096) * G;
+    imu.linear_acceleration.z = (double(acc_z) / 4096) * G;
 
-    imu.angular_velocity.x = (double(gyro_x) / 16.384) / DEG2RAD;
-    imu.angular_velocity.y = (double(gyro_y) / 16.384) / DEG2RAD;
-    imu.angular_velocity.z = (double(gyro_z) / 16.384) / DEG2RAD;
+    imu.angular_velocity.x = (double(gyro_x) / 65.536) / DEG2RAD;
+    imu.angular_velocity.y = (double(gyro_y) / 65.536) / DEG2RAD;
+    imu.angular_velocity.z = (double(gyro_z) / 65.536) / DEG2RAD;
 
     imu.header.stamp    = ros::Time::now();
     imu.header.frame_id = _uav_name_ + "/vio_imu";
