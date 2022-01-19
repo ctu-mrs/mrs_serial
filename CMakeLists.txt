@@ -69,6 +69,12 @@ target_link_libraries(Ultrasound
   ${catkin_LIBRARIES}
   )
 
+add_library(TarotGimbal src/tarot_gimbal.cpp src/serial_port.cpp)
+
+target_link_libraries(TarotGimbal
+  ${catkin_LIBRARIES}
+  )
+
 add_library(Gimbal
   src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp
   )
