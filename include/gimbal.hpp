@@ -21,7 +21,7 @@
 #include <dynamic_reconfigure/server.h>
 #include "SBGC_lib/SBGC.h"
 #include "serial_port.h"
-#include <mrs_serial/GimbalParamsConfig.h>
+#include <mrs_serial/gimbalConfig.h>
 
 namespace gimbal {
 
@@ -30,7 +30,7 @@ namespace gimbal {
     using anax_t = Eigen::AngleAxisd;
     using vec3_t = Eigen::Vector3d;
 
-    using Config = mrs_serial::GimbalParamsConfig;
+    using Config = mrs_serial::gimbalConfig;
     using ReconfigureServer = dynamic_reconfigure::Server<Config>;
 
     /* class Gimbal //{ */
@@ -101,7 +101,7 @@ namespace gimbal {
 
         void rotate_gimbal_PRY_rot_mat(double pitch, double roll, double yaw, const mat3_t &rot_mat);
 
-        void callbackDynamicReconfigure(const mrs_serial::GimbalParamsConfig &config, const uint32_t level) {
+        void callbackDynamicReconfigure(const mrs_serial::gimbalConfig &config, const uint32_t level) {
             ROS_INFO("[Gimbal] dynamic_reconf entered");
             if (config.motors_on_off == false) {
                 stop_gimbal_motors();
