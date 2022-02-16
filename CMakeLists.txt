@@ -19,9 +19,13 @@ generate_dynamic_reconfigure_options(
   config/gimbal.cfg
   )
 
+set(LIBRARIES
+  VioImu NmeaParser BacaProtocol Servo Led Estop Ultrasound TarotGimbal Gimbal
+  )
+
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES BacaProtocol NmeaParser VioImu Gimbal
+  LIBRARIES ${LIBRARIES}
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
   )
 
@@ -31,52 +35,99 @@ include_directories(
   ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
-add_library(VioImu src/vio_imu.cpp src/serial_port.cpp)
+# VioImu
+
+add_library(VioImu
+  src/vio_imu.cpp
+  src/serial_port.cpp
+  )
+
 target_link_libraries(VioImu
   ${catkin_LIBRARIES}
   )
 
-add_library(NmeaParser src/nmea_parser.cpp src/serial_port.cpp)
+# NmeaParser
+
+add_library(NmeaParser
+  src/nmea_parser.cpp
+  src/serial_port.cpp
+  )
+
 target_link_libraries(NmeaParser
   ${catkin_LIBRARIES}
   )
 
-add_library(BacaProtocol src/baca_protocol.cpp src/serial_port.cpp)
+# BacaProtocol
+
+add_library(BacaProtocol
+  src/baca_protocol.cpp
+  src/serial_port.cpp
+  )
+
 target_link_libraries(BacaProtocol
   ${catkin_LIBRARIES}
   )
 
-add_library(Servo src/servo.cpp src/serial_port.cpp)
+# Servo
+
+add_library(Servo
+  src/servo.cpp
+  src/serial_port.cpp
+  )
+
 target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
 
-add_library(Led src/led.cpp src/serial_port.cpp)
+# Led
+
+add_library(Led
+  src/led.cpp
+  src/serial_port.cpp
+  )
 
 target_link_libraries(Led
   ${catkin_LIBRARIES}
   )
 
-add_library(Estop src/estop.cpp src/serial_port.cpp)
+# Estop
+
+add_library(Estop
+  src/estop.cpp
+  src/serial_port.cpp
+  )
 
 target_link_libraries(Estop
   ${catkin_LIBRARIES}
   )
 
-add_library(Ultrasound src/ultrasound.cpp src/serial_port.cpp)
+# Ultrasound
+
+add_library(Ultrasound
+  src/ultrasound.cpp
+  src/serial_port.cpp)
 
 target_link_libraries(Ultrasound
   ${catkin_LIBRARIES}
   )
 
-add_library(TarotGimbal src/tarot_gimbal.cpp src/serial_port.cpp)
+# TarotGimbal
+
+add_library(TarotGimbal
+  src/tarot_gimbal.cpp
+  src/serial_port.cpp)
 
 target_link_libraries(TarotGimbal
   ${catkin_LIBRARIES}
   )
 
+# Gimbal
+
 add_library(Gimbal
-  src/gimbal.cpp src/serial_port.cpp src/SBGC_lib/SBGC_cmd_helpers.cpp include/gimbal.hpp
+  src/gimbal.cpp
+  src/serial_port.cpp
+  src/SBGC_lib/SBGC_cmd_helpers.cpp
+  include/gimbal.hpp
   )
 
 add_dependencies(Gimbal
@@ -87,4 +138,32 @@ add_dependencies(Gimbal
 
 target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
+  )
+
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
+
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(DIRECTORY launch config rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY tmux_scripts
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY include/
+  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+)
+
+install(DIRECTORY ./
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  FILES_MATCHING PATTERN "*.xml"
   )
