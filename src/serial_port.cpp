@@ -44,7 +44,7 @@ namespace serial_port {
         // O_RDWR - Read and write
         // O_NOCTTY - Ignore special chars like CTRL-C
 
-        serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY);
+        serial_port_fd_ = open(port.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
 
         if (serial_port_fd_ == -1) {
             ROS_ERROR_THROTTLE(1.0, "[%s]: could not open serial port %s", ros::this_node::getName().c_str(),
