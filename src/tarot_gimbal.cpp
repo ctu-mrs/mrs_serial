@@ -363,11 +363,11 @@ void TarotGimbal::processMessage(uint8_t payload_size, uint8_t *input_buffer, ui
     int16_t ch2 = input_buffer[3] << 8;
     ch2 |= input_buffer[4];
 
-    bool gimbal_mode  = false;
+    bool gimbal_mode  = true;
     bool gimbal_is_on = false;
 
     if (input_buffer[5] & GIMBAL_MODE) {
-      gimbal_mode = true;
+      gimbal_mode = false;
     }
 
     if (input_buffer[5] & GIMBAL_IS_ON) {
