@@ -51,7 +51,9 @@ namespace gimbal {
             m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
             m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
 
-            m_transformer = mrs_lib::Transformer("Gimbal", m_uav_name);
+            m_transformer = std::make_unique<mrs_lib::Transformer>("Gimbal");
+            m_transformer->setDefaultPrefix(m_uav_name);
+
             sbgc_parser.init(&m_serial_port);
 
         } else {
@@ -210,7 +212,7 @@ namespace gimbal {
         cmd_orientation_normalized->quaternion.w = quat_eig.w();
         cmd_orientation_normalized->header = cmd_orientation->header;
 
-        const auto ori_opt = m_transformer.transformSingle(m_stabilization_frame_id, cmd_orientation_normalized);
+        const auto ori_opt = m_transformer->transformSingle(cmd_orientation_normalized, m_stabilization_frame_id);
         if (!ori_opt.has_value()) {
             ROS_ERROR_THROTTLE(1.0,
                                "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
@@ -328,7 +330,7 @@ namespace gimbal {
     void Gimbal::rotate_gimbal_PRY_between_frames(const double &pitch, const double &roll, const double &yaw,
                                                   const std::string &in_frame_id, const std::string &out_frame_id) {
 
-        const auto tf_opt = m_transformer.getTransform(in_frame_id, out_frame_id);
+        const auto tf_opt = m_transformer->getTransform(in_frame_id, out_frame_id);
 
         if (!tf_opt.has_value()) {
             ROS_ERROR_THROTTLE(1.0,
@@ -337,7 +339,7 @@ namespace gimbal {
             return;
         }
 
-        const mat3_t rot_mat = tf_opt->getTransformEigen().rotation();
+        const mat3_t rot_mat = tf2::transformToEigen(tf_opt->transform).rotation();
 
         rotate_gimbal_PRY_rot_mat(pitch, roll, yaw, rot_mat);
     }

@@ -23,6 +23,8 @@
 #include "serial_port.h"
 #include <mrs_serial/gimbalConfig.h>
 
+#include <tf2_eigen/tf2_eigen.h>
+
 namespace gimbal {
 
     using mat3_t = Eigen::Matrix3d;
@@ -146,7 +148,7 @@ namespace gimbal {
 
         tf2_ros::TransformBroadcaster m_pub_transform;
 
-        mrs_lib::Transformer m_transformer;
+        std::unique_ptr<mrs_lib::Transformer> m_transformer;
         serial_port::SerialPort m_serial_port;
 
         // --------------------------------------------------------------
