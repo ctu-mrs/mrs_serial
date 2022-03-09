@@ -53,6 +53,7 @@ namespace gimbal {
 
             m_transformer = std::make_unique<mrs_lib::Transformer>("Gimbal");
             m_transformer->setDefaultPrefix(m_uav_name);
+            m_transformer->retryLookupNewest(true);
 
             sbgc_parser.init(&m_serial_port);
 
