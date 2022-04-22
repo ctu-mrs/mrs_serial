@@ -190,8 +190,8 @@ namespace gimbal {
 
     public:
 //        FOR DYNAMIC PARAMS
-        boost::recursive_mutex m_config_mutex;
-        boost::shared_ptr<ReconfigureServer> reconfigure_server;
+        std::recursive_mutex m_config_mutex;
+        std::shared_ptr<ReconfigureServer> reconfigure_server;
 
         /* onInit() //{ */
         void onInit() override;

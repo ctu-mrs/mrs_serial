@@ -3,65 +3,69 @@
 namespace gimbal {
     /* onInit() //{ */
 
-    void Gimbal::onInit() {
-        // Get paramters
-        m_nh = ros::NodeHandle("~");
+    void Gimbal::onInit()
+    {
+      // Get paramters
+      m_nh = ros::NodeHandle("~");
 
-        ros::Time::waitForValid();
+      ros::Time::waitForValid();
 
-        mrs_lib::ParamLoader pl(m_nh);
+      mrs_lib::ParamLoader pl(m_nh);
 
-        pl.loadParam("uav_name", m_uav_name);
-        pl.loadParam("portname", m_portname);
-        pl.loadParam("baudrate", m_baudrate);
-        pl.loadParam("stabilization_frame_id", m_stabilization_frame_id);
-        pl.loadParam("stabilized_frame_id", m_stabilized_frame_id);
-        pl.loadParam("base_frame_id", m_base_frame_id);
+      pl.loadParam("uav_name", m_uav_name);
+      pl.loadParam("portname", m_portname);
+      pl.loadParam("baudrate", m_baudrate);
+      pl.loadParam("stabilization_frame_id", m_stabilization_frame_id);
+      pl.loadParam("stabilized_frame_id", m_stabilized_frame_id);
+      pl.loadParam("base_frame_id", m_base_frame_id);
 
-        pl.loadParam("heartbeat_period", m_heartbeat_period, ros::Duration(1.0));
+      pl.loadParam("heartbeat_period", m_heartbeat_period, ros::Duration(1.0));
 
-        if (!pl.loadedSuccessfully()) {
-            ROS_ERROR("[Gimbal]: Some compulsory parameters could not be loaded! Ending.");
-            ros::shutdown();
-            return;
-        }
+      if (!pl.loadedSuccessfully())
+      {
+        ROS_ERROR("[Gimbal]: Some compulsory parameters could not be loaded! Ending.");
+        ros::shutdown();
+        return;
+      }
 
-        reconfigure_server.reset(new ReconfigureServer(m_config_mutex, m_nh));
-        ReconfigureServer::CallbackType f = boost::bind(&Gimbal::callbackDynamicReconfigure, this, _1, _2);
+      // Output loaded parameters to console for double checking
+      ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:",
+                        ros::this_node::getName().c_str());
+      ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), m_portname.c_str());
+      ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), m_baudrate);
 
-        reconfigure_server->setCallback(f);
-        // Output loaded parameters to console for double checking
-        ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:",
-                          ros::this_node::getName().c_str());
-        ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), m_portname.c_str());
-        ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), m_baudrate);
+      const bool connected = connect();
+      if (connected)
+      {
+        m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
+        m_tim_receiving = m_nh.createTimer(ros::Duration(0.001), &Gimbal::receiving_loop, this);
 
-        const bool connected = connect();
-        if (connected) {
-            m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
-            m_tim_receiving = m_nh.createTimer(ros::Duration(0.001), &Gimbal::receiving_loop, this);
+        m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
+        m_pub_speed = m_nh.advertise<geometry_msgs::Vector3>("speed_out", 10);
+        m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
+        m_pub_orientation_pry = m_nh.advertise<mrs_msgs::GimbalPRY>("attitude_out_pry", 10);
 
-            m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
-            m_pub_speed = m_nh.advertise<geometry_msgs::Vector3>("speed_out", 10);
-            m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
-            m_pub_orientation_pry = m_nh.advertise<mrs_msgs::GimbalPRY>("attitude_out_pry", 10);
+        m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
+        m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
+        m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
 
+        m_transformer = std::make_unique<mrs_lib::Transformer>("Gimbal");
+        m_transformer->setDefaultPrefix(m_uav_name);
+        m_transformer->retryLookupNewest(true);
 
-            m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
-            m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
-            m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
+        sbgc_parser.init(&m_serial_port);
 
-            m_transformer = std::make_unique<mrs_lib::Transformer>("Gimbal");
-            m_transformer->setDefaultPrefix(m_uav_name);
-            m_transformer->retryLookupNewest(true);
+      }
+      else
+      {
+          ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
+          ros::shutdown();
+          return;
+      }
 
-            sbgc_parser.init(&m_serial_port);
-
-        } else {
-            ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
-            ros::shutdown();
-            return;
-        }
+      ReconfigureServer::CallbackType f = boost::bind(&Gimbal::callbackDynamicReconfigure, this, _1, _2);
+      reconfigure_server = std::make_unique<ReconfigureServer>(m_config_mutex, m_nh);
+      reconfigure_server->setCallback(f);
     }
 //}
 
@@ -329,20 +333,21 @@ namespace gimbal {
     /* rotate_gimbal_PRY_between_frames() //{ */
 
     void Gimbal::rotate_gimbal_PRY_between_frames(const double &pitch, const double &roll, const double &yaw,
-                                                  const std::string &in_frame_id, const std::string &out_frame_id) {
+                                                  const std::string &in_frame_id, const std::string &out_frame_id)
+    {
+      const auto tf_opt = m_transformer->getTransform(in_frame_id, out_frame_id);
 
-        const auto tf_opt = m_transformer->getTransform(in_frame_id, out_frame_id);
+      if (!tf_opt.has_value())
+      {
+        ROS_ERROR_THROTTLE(1.0,
+                           "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
+                           m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
+        return;
+      }
 
-        if (!tf_opt.has_value()) {
-            ROS_ERROR_THROTTLE(1.0,
-                               "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.",
-                               m_base_frame_id.c_str(), m_stabilization_frame_id.c_str());
-            return;
-        }
+      const mat3_t rot_mat = tf2::transformToEigen(tf_opt->transform).rotation();
 
-        const mat3_t rot_mat = tf2::transformToEigen(tf_opt->transform).rotation();
-
-        rotate_gimbal_PRY_rot_mat(pitch, roll, yaw, rot_mat);
+      rotate_gimbal_PRY_rot_mat(pitch, roll, yaw, rot_mat);
     }
 
     //}
@@ -387,9 +392,9 @@ namespace gimbal {
     }
     //}
 
-    quat_t Gimbal::pry2quat([[maybe_unused]] const double pitch,
+    quat_t Gimbal::pry2quat(const double pitch,
                             [[maybe_unused]] const double roll,
-                            [[maybe_unused]] const double yaw) {
+                            const double yaw) {
         // TODO: this depends on the order of motors - a 2-axis PITCH-YAW gimbal (from camera to the frame) is assumed here
         // in our case PITCH_ROLL_YAW order is used (but there is no roll)
         return quat_t(anax_t(yaw, vec3_t::UnitZ()) * anax_t(pitch, vec3_t::UnitY()));
