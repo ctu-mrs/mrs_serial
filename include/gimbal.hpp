@@ -190,7 +190,6 @@ namespace gimbal {
 
     public:
 //        FOR DYNAMIC PARAMS
-        std::recursive_mutex m_config_mutex;
         std::shared_ptr<ReconfigureServer> reconfigure_server;
 
         /* onInit() //{ */

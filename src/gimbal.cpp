@@ -1,6 +1,8 @@
 #include "gimbal.hpp"
 
-namespace gimbal {
+namespace gimbal
+{
+
     /* onInit() //{ */
 
     void Gimbal::onInit()
@@ -58,17 +60,16 @@ namespace gimbal {
       }
       else
       {
-          ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
-          ros::shutdown();
-          return;
+        ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
+        ros::shutdown();
+        return;
       }
 
       ReconfigureServer::CallbackType f = boost::bind(&Gimbal::callbackDynamicReconfigure, this, _1, _2);
-      reconfigure_server = std::make_unique<ReconfigureServer>(m_config_mutex, m_nh);
+      reconfigure_server = std::make_unique<ReconfigureServer>(m_nh);
       reconfigure_server->setCallback(f);
     }
 //}
-
 
     /* connect() //{ */
 
