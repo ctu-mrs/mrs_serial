@@ -4,6 +4,12 @@
 #include <mutex>
 
 #include <mrs_msgs/Gpgga.h>
+#include <mrs_msgs/Gpgsa.h>
+#include <mrs_msgs/Gpgst.h>
+#include <mrs_msgs/Gpvtg.h>
+
+#include <mrs_msgs/StringStamped.h>
+
 #include <mrs_msgs/Bestpos.h>
 #include <mrs_msgs/GpsStatus.h>
 
@@ -57,14 +63,24 @@ private:
   void    stringTimer(const ros::TimerEvent& event);
 
   void processGPGGA(std::vector<std::string>& results);
+  void processGPGSA(std::vector<std::string>& results);
+  void processGPGST(std::vector<std::string>& results);
+  void processGPVTG(std::vector<std::string>& results);
+
+
+  double stodSafe(std::string& string_in);
+  int    stoiSafe(std::string& string_in);
 
   ros::NodeHandle nh_;
 
   ros::Publisher gpgga_pub_;
+  ros::Publisher gpgsa_pub_;
+  ros::Publisher gpgst_pub_;
+  ros::Publisher gpvtg_pub_;
   ros::Publisher bestpos_pub_;
   ros::Publisher string_pub_;
+  ros::Publisher string_raw_pub_;
   ros::Publisher baca_protocol_publisher_;
-  ros::Publisher status_string_publisher_;
 
   ros::Timer string_timer_;
   ros::Timer serial_timer_;
@@ -94,7 +110,10 @@ private:
 
   std::mutex mutex_msg;
 
-  int msg_counter_ = 0;
+  int msg_counter_gpgga_ = 0;
+  int msg_counter_gpgsa_ = 0;
+  int msg_counter_gpgst_ = 0;
+  int msg_counter_gpvtg_ = 0;
 
   ros::Time last_received_;
   ros::Time interval_;
@@ -121,15 +140,14 @@ void NmeaParser::onInit() {
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   gpgga_pub_               = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
+  gpgsa_pub_               = nh_.advertise<mrs_msgs::Gpgsa>("gpgsa_out", 1);
+  gpgst_pub_               = nh_.advertise<mrs_msgs::Gpgst>("gpgst_out", 1);
+  gpvtg_pub_               = nh_.advertise<mrs_msgs::Gpvtg>("gpvtg_out", 1);
   bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
   string_pub_              = nh_.advertise<std_msgs::String>("status_out", 1);
-  status_string_publisher_ = nh_.advertise<std_msgs::String>("string_out", 1);
+  string_raw_pub_          = nh_.advertise<mrs_msgs::StringStamped>("raw_out", 1);
 
-  /* string_timer_     = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this); */
-  serial_timer_     = nh_.createTimer(ros::Rate(serial_rate_), &NmeaParser::stringTimer, this);
-  maintainer_timer_ = nh_.createTimer(ros::Rate(1), &NmeaParser::stringTimer, this);
-
-  bestpos_msg_.diff_age = 99.0;
+  bestpos_msg_.diff_age = 9999;
 
   // Output loaded parameters to console for double checking
   ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
@@ -188,10 +206,14 @@ void NmeaParser::callbackMaintainerTimer(const ros::TimerEvent& event) {
 
   if (is_connected_) {
 
-    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] Got " << msg_counter_ << " GPGGA/GNGGA messages in last "
-                        << (ros::Time::now() - interval_).toSec() << " s");
-    msg_counter_ = 0;
-    interval_    = ros::Time::now();
+    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "] Got " << msg_counter_gpgga_ << " GPGGA, " << msg_counter_gpgsa_ << " GPGSA, "
+                        << msg_counter_gpgst_ << " GPGST, " << msg_counter_gpvtg_ << " GPVTG messages in last " << (ros::Time::now() - interval_).toSec()
+                        << " s");
+    msg_counter_gpgga_ = 0;
+    msg_counter_gpgsa_ = 0;
+    msg_counter_gpgst_ = 0;
+    msg_counter_gpvtg_ = 0;
+    interval_          = ros::Time::now();
 
   } else {
 
@@ -209,7 +231,6 @@ void NmeaParser::interpretSerialData(uint8_t single_character) {
 
     if (single_character == '\n') {
 
-      ROS_INFO_STREAM_THROTTLE(1.0, "getting_msgs");
       processMessage();
       msg_   = "";
       state_ = WAITING_FOR_DOLLAR;
@@ -236,60 +257,44 @@ void NmeaParser::interpretSerialData(uint8_t single_character) {
 
 // | ------------------------ routines ------------------------ |
 
-/* stringTimer() //{ */
-
-void NmeaParser::stringTimer([[maybe_unused]] const ros::TimerEvent& event) {
-  std_msgs::String msg;
-
-  switch (rtk_state_) {
-    case SINGLE:
-      msg.data = "-y RTK: SINGLE";
-      break;
-    case PSRDIFF:
-      msg.data = "-y RTK: PSRDIFF";
-      break;
-    case L1_INT:
-      msg.data = "-g RTK: L1_INT";
-      break;
-    case L1_FLOAT:
-      msg.data = "-y RTK: L1_FLOAT";
-      break;
-    default:
-      msg.data = "-r RTK: NONE";
-      break;
-  }
-
-  std::stringstream stream;
-  stream << std::fixed << std::setprecision(2) << bestpos_msg_.diff_age;
-
-  msg.data += " age: " + stream.str();
-
-  if (bestpos_msg_.diff_age > 10) {
-    msg.data[0] = '-';  
-    msg.data[1] = 'R';  
-    msg.data[2] = ' ';  
-  }
-
-  try {
-    status_string_publisher_.publish(msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Nmea Parser]: exception caught during publishing topic ");
-  }
-}
-
-//}
-
 /* processMessage() //{ */
 
 void NmeaParser::processMessage() {
 
-  std::vector<std::string> results;
+  mrs_msgs::StringStamped string_raw_out;
+  string_raw_out.header.stamp = ros::Time::now();
+  string_raw_out.data         = msg_;
 
+  try {
+    string_raw_pub_.publish(string_raw_out);
+    /* ROS_INFO_STREAM("[NmeaParser]: " << msg_); */
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea parser]: exception caught during publishing");
+  }
+
+
+  std::vector<std::string> results;
   boost::split(results, msg_, [](char c) { return c == ','; });  // split the input string into words and put them in results vector
 
   if (results[0] == "GPGGA" || results[0] == "GNGGA") {
+    /* ROS_INFO_STREAM("[NmeaParser]: GPGGA "); */
     processGPGGA(results);
+  }
+
+  if (results[0] == "GPGSA" || results[0] == "GNGSA") {
+    /* ROS_INFO_STREAM("[NmeaParser]: GPGSA "); */
+    processGPGSA(results);
+  }
+
+  if (results[0] == "GPGST" || results[0] == "GNGST") {
+    /* ROS_INFO_STREAM("[NmeaParser]: GPGST "); */
+    processGPGST(results);
+  }
+
+  if (results[0] == "GPVTG" || results[0] == "GNVTG") {
+    /* ROS_INFO_STREAM("[NmeaParser]: GPVTG "); */
+    processGPVTG(results);
   }
 }
 
@@ -302,40 +307,66 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   mrs_msgs::Gpgga     gpgga_msg;
   mrs_msgs::GpsStatus gps_status;
 
-  try {
+  /* for (size_t i = 0; i < results.size(); i++) { */
+  /*   ROS_INFO_STREAM("[NmeaParser]:  " << i << "  " << results[i]); */
+  /* } */
 
-    gpgga_msg.utc_seconds      = stod(results[1]);
-    std::string lat            = results[2];
-    gpgga_msg.latitude         = stod(lat.substr(0, 2)) + stod(lat.substr(2, 10)) / 60;
-    gpgga_msg.latitude_dir     = results[3];
-    std::string lon            = results[4];
-    gpgga_msg.longitude        = stod(lon.substr(0, 3)) + stod(lon.substr(3, 10)) / 60;
-    gpgga_msg.longitude_dir    = results[5];
-    gps_status.quality         = stoi(results[6]);
-    gpgga_msg.gps_quality      = gps_status;
-    gpgga_msg.num_sats         = stoi(results[7]);
-    gpgga_msg.hdop             = stod(results[8]);
-    gpgga_msg.altitude         = stod(results[9]);
-    gpgga_msg.altitude_units   = results[10];
-    gpgga_msg.undulation       = stod(results[11]);
-    gpgga_msg.undulation_units = results[12];
 
-    if (results[13] == "") {
-      gpgga_msg.diff_age = 0;
-    } else {
-      gpgga_msg.diff_age = stoi(results[13]);
-    }
+  gpgga_msg.header.stamp    = ros::Time::now();
+  bestpos_msg_.header.stamp = ros::Time::now();
 
-    std::vector<std::string> results2;
-    boost::split(results2, results[14], [](char c) { return c == '*'; });  // split the input string into words and put them in results vector
+  gpgga_msg.utc_seconds = stodSafe(results[1]);
 
-    gpgga_msg.station_id = results2[0];
+  std::string lat    = results[2];
+  std::string sub_s1 = "";
+  std::string sub_s2 = "";
+  std::string sub_s3 = "";
+  std::string sub_s4 = "";
+  if (lat != "") {
+    sub_s1 = lat.substr(0, 2);
+    sub_s2 = lat.substr(2, 10);
   }
 
-  catch (const std::invalid_argument& e) {
+  gpgga_msg.latitude     = stodSafe(sub_s1) + stodSafe(sub_s2) / 60;
+  gpgga_msg.latitude_dir = results[3];
 
-    ROS_ERROR("Invalid argument exception in processGPGGA");
+  std::string lon = results[4];
+  if (lon != "") {
+    sub_s3 = lon.substr(0, 3);
+    sub_s4 = lon.substr(3, 10);
   }
+
+  gpgga_msg.longitude        = stodSafe(sub_s3) + stodSafe(sub_s4) / 60;
+  gpgga_msg.longitude_dir    = results[5];
+  gps_status.quality         = stoiSafe(results[6]);
+  gpgga_msg.gps_quality      = gps_status;
+  gpgga_msg.num_sats         = stoiSafe(results[7]);
+  gpgga_msg.hdop             = stodSafe(results[8]);
+  gpgga_msg.altitude         = stodSafe(results[9]);
+  gpgga_msg.altitude_units   = results[10];
+  gpgga_msg.undulation       = stodSafe(results[11]);
+  gpgga_msg.undulation_units = results[12];
+
+  if (results[13] == "") {
+    gpgga_msg.diff_age = 9999;
+  } else {
+    gpgga_msg.diff_age = stoiSafe(results[13]);
+  }
+
+  std::vector<std::string> results_checksum_remove;
+  boost::split(results_checksum_remove, results[14], [](char c) { return c == '*'; });
+  if(results_checksum_remove[0] == ""){
+    // no basestation ID in GPGGA msg => no corrections are incoming
+    gpgga_msg.diff_age = 9999;
+  }
+
+
+
+
+  std::vector<std::string> results2;
+  boost::split(results2, results[14], [](char c) { return c == '*'; });  // split the input string into words and put them in results vector
+
+  gpgga_msg.station_id = results2[0];
 
   bestpos_msg_.latitude               = gpgga_msg.latitude;
   bestpos_msg_.longitude              = gpgga_msg.longitude;
@@ -349,34 +380,35 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   switch (gpgga_msg.gps_quality.quality) {
     case 1:
       bestpos_msg_.position_type = "SINGLE";
-      string_msg.data = "-y RTK: SINGLE";
+      string_msg.data            = "-y RTK: SINGLE";
       rtk_state_                 = SINGLE;
       break;
     case 2:
       bestpos_msg_.position_type = "PSRDIFF";
-      string_msg.data = "-y RTK: PSRDIFF";
+      string_msg.data            = "-y RTK: PSRDIFF";
       rtk_state_                 = PSRDIFF;
       break;
     case 4:
       bestpos_msg_.position_type = "L1_INT";
-      string_msg.data = "-g RTK: L1_INT";
+      string_msg.data            = "-g RTK: L1_INT";
       rtk_state_                 = L1_INT;
       break;
     case 5:
       bestpos_msg_.position_type = "L1_FLOAT";
-      string_msg.data = "-y RTK: L1_FLOAT";
+      string_msg.data            = "-y RTK: L1_FLOAT";
       rtk_state_                 = L1_FLOAT;
       break;
     default:
       bestpos_msg_.position_type = "NONE";
-      string_msg.data = "-r RTK: NONE";
+      string_msg.data            = "-r RTK: NONE";
       rtk_state_                 = NONE;
       break;
   }
 
-  
+  ROS_INFO_STREAM_THROTTLE(1.0, "[NmeaParser]: " << string_msg.data.substr(3));
+
   double diff_age = bestpos_msg_.diff_age;
-  if (diff_age == 0.0 || diff_age > 99.9) {
+  if (diff_age > 99.9) {
     diff_age = 99.9;
   }
   std::stringstream stream;
@@ -385,9 +417,9 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   string_msg.data += " age: " + stream.str();
 
   if (diff_age > 10) {
-    string_msg.data[0] = '-';  
-    string_msg.data[1] = 'R';  
-    string_msg.data[2] = ' ';  
+    string_msg.data[0] = '-';
+    string_msg.data[1] = 'R';
+    string_msg.data[2] = ' ';
   }
 
   try {
@@ -395,11 +427,152 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
     bestpos_pub_.publish(bestpos_msg_);
     string_pub_.publish(string_msg);
 
-    msg_counter_++;
+    msg_counter_gpgga_++;
   }
   catch (...) {
     ROS_ERROR("[Nmea parser]: exception caught during publishing");
   }
+}  // namespace nmea_parser
+
+//}
+
+/* processGPGSA() //{ */
+
+void NmeaParser::processGPGSA(std::vector<std::string>& results) {
+
+  mrs_msgs::Gpgsa gpgsa_msg;
+  gpgsa_msg.header.stamp = ros::Time::now();
+
+  gpgsa_msg.auto_manual_mode = results[2];
+  gpgsa_msg.fix_mode         = stoiSafe(results[3]);
+  for (int i = 0; i < 12; i++) {
+    if (results[3 + i] == "") {
+      gpgsa_msg.prn.push_back(0);
+    } else {
+      gpgsa_msg.prn.push_back(stoiSafe(results[3 + i]));
+    }
+  }
+  gpgsa_msg.pdop = stodSafe(results[15]);
+  gpgsa_msg.hdop = stodSafe(results[16]);
+
+  std::vector<std::string> results_checksum_remove;
+  boost::split(results_checksum_remove, results[17], [](char c) { return c == '*'; });
+  gpgsa_msg.vdop = stodSafe(results_checksum_remove[0]);
+
+  try {
+    gpgsa_pub_.publish(gpgsa_msg);
+
+    msg_counter_gpgsa_++;
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea parser]: exception caught during publishing");
+  }
+}  // namespace nmea_parser
+
+//}
+
+/* processGPGST() //{ */
+
+void NmeaParser::processGPGST(std::vector<std::string>& results) {
+
+  mrs_msgs::Gpgst gpgst_msg;
+  gpgst_msg.header.stamp = ros::Time::now();
+
+  /* for (size_t i = 0; i < results.size(); i++) { */
+  /*   ROS_INFO_STREAM("[NmeaParser]:  " << i << "  " << results[i]); */
+  /* } */
+  gpgst_msg.utc      = stodSafe(results[1]);
+  gpgst_msg.rms      = stodSafe(results[2]);
+  gpgst_msg.smjr_std = stodSafe(results[3]);
+  gpgst_msg.smnr_std = stodSafe(results[4]);
+  gpgst_msg.orient   = stodSafe(results[5]);
+  gpgst_msg.lat_std  = stodSafe(results[6]);
+  gpgst_msg.lon_std  = stodSafe(results[7]);
+
+  std::vector<std::string> results_checksum_remove;
+  boost::split(results_checksum_remove, results[8], [](char c) { return c == '*'; });
+  gpgst_msg.alt_std = stodSafe(results_checksum_remove[0]);
+
+
+  try {
+    gpgst_pub_.publish(gpgst_msg);
+
+    msg_counter_gpgst_++;
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea parser]: exception caught during publishing");
+  }
+}
+
+//}
+
+/* processGPVTG() //{ */
+
+void NmeaParser::processGPVTG(std::vector<std::string>& results) {
+
+  mrs_msgs::Gpvtg gpvtg_msg;
+  gpvtg_msg.header.stamp = ros::Time::now();
+
+  /* for (size_t i = 0; i < results.size(); i++) { */
+  /*   ROS_INFO_STREAM("[NmeaParser]:  " << i << "  " << results[i]); */
+  /* } */
+
+  gpvtg_msg.track_true           = stodSafe(results[1]);
+  gpvtg_msg.track_true_indicator = results[2];
+
+  gpvtg_msg.track_mag           = stodSafe(results[3]);
+  gpvtg_msg.track_mag_indicator = results[4];
+
+  gpvtg_msg.speed_knots           = stodSafe(results[5]);
+  gpvtg_msg.speed_knots_indicator = results[6];
+
+  gpvtg_msg.speed_kmh           = stodSafe(results[7]);
+  gpvtg_msg.speed_kmh_indicator = results[8];
+  gpvtg_msg.mode_indicator = results[9];
+
+
+  try {
+    gpvtg_pub_.publish(gpvtg_msg);
+
+    msg_counter_gpvtg_++;
+  }
+  catch (...) {
+    ROS_ERROR("[Nmea parser]: exception caught during publishing");
+  }
+}
+
+//}
+
+/* stodSafe() //{ */
+
+double NmeaParser::stodSafe(std::string& string_in) {
+  double ret_val = 0.0;
+  if (string_in != "") {
+    try {
+      ret_val = stod(string_in);
+    }
+    catch (const std::invalid_argument& e) {
+      ROS_ERROR("Invalid argument exception in stodSafe");
+    }
+  }
+  return ret_val;
+}
+
+//}
+
+/* stoiSafe() //{ */
+
+int NmeaParser::stoiSafe(std::string& string_in) {
+  int ret_val = 0;
+  if (string_in != "") {
+    try {
+      ret_val = stoi(string_in);
+    }
+    catch (const std::invalid_argument& e) {
+      ROS_ERROR("Invalid argument exception in stodSafe");
+    }
+  }
+  return ret_val;
 }
 
 //}

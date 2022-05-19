@@ -39,6 +39,10 @@
 
       <!-- Publishers -->
       <remap from="~gpgga_out" to="~gpgga" />
+      <remap from="~gpgsa_out" to="~gpgsa" />
+      <remap from="~gpgst_out" to="~gpgst" />
+      <remap from="~gpvtg_out" to="~gpvtg" />
+      <remap from="~raw_out" to="~all_msgs_raw" />
       <remap from="~bestpos_out" to="~bestpos" />
       <remap from="~status_out" to="/$(arg UAV_NAME)/mrs_uav_status/display_string" />
 
