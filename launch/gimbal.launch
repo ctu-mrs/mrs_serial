@@ -34,8 +34,7 @@
 
       <rosparam file="$(find mrs_serial)/config/gimbal.yaml" />
 
-      <param name="portname" value="$(arg portname)"/>
-      <param name="baudrate" value="$(arg baudrate)"/>
+      <param name="url" value="udp://:11454@192.168.0.205:10024"/>
       <param name="use_timeout" value="false"/>
 
     </node>

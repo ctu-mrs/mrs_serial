@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   nodelet
   sensor_msgs
   mrs_msgs
+  libmavconn
   std_msgs
   mrs_lib
   )
@@ -16,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES BacaProtocol NmeaParser VioImu Gimbal
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs mrs_msgs libmavconn
   )
 
 include_directories(
@@ -44,7 +45,7 @@ target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
 
-add_library(Gimbal src/gimbal.cpp src/serial_port.cpp)
+add_library(Gimbal src/gimbal_mavlink.cpp)
 target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
