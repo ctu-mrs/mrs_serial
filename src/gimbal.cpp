@@ -18,8 +18,24 @@
 #include <string>
 
 #include <mrs_msgs/GimbalPRY.h>
-#include "mavlink/mavlink.h"
-#include "serial_port.h"
+#include <mavconn/interface.h>
+
+#include <mavlink/v2.0/common/mavlink_msg_heartbeat.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_message_interval.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_param_request_list.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_param_request_read.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_param_set.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_attitude.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_global_position_int.hpp>
+
+/* using mavlink_message_t = mavlink::mavlink_message_t; */
+/* #include <mavlink/v2.0/common/mavlink_msg_sys_status.hpp> */
+/* #include <mavlink/v2.0/common/mavlink_msg_param_value.h> */
+/* #include <mavlink/v2.0/common/mavlink_msg_attitude.h> */
+
+#include <mavlink/v2.0/common/mavlink_msg_command_long.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_gimbal_device_set_attitude.hpp>
+#include <mavlink/v2.0/common/mavlink_msg_gimbal_manager_set_attitude.hpp>
 
 namespace gimbal
 {
@@ -31,7 +47,7 @@ namespace gimbal
   private:
     /* enums and struct defines //{ */
 
-    static constexpr char EULER_ORDER_PARAM_ID[16] = "G_EULER_ORDER\0";
+    static constexpr std::array<char, 16> EULER_ORDER_PARAM_ID = {"G_EULER_ORDER\0"};
 
     enum class euler_order_t
     {
@@ -156,8 +172,7 @@ namespace gimbal
       mrs_lib::ParamLoader pl(m_nh);
 
       pl.loadParam("uav_name", m_uav_name);
-      pl.loadParam("portname", m_portname);
-      pl.loadParam("baudrate", m_baudrate);
+      const auto url = pl.loadParam2<std::string>("url");
       pl.loadParam("base_frame_id", m_base_frame_id);
       pl.loadParam("child_frame_id", m_child_frame_id);
 
@@ -193,14 +208,13 @@ namespace gimbal
 
       // Output loaded parameters to console for double checking
       ROS_INFO_THROTTLE(1.0, "[%s] is up and running with the following parameters:", ros::this_node::getName().c_str());
-      ROS_INFO_THROTTLE(1.0, "[%s] portname: %s", ros::this_node::getName().c_str(), m_portname.c_str());
-      ROS_INFO_THROTTLE(1.0, "[%s] baudrate: %i", ros::this_node::getName().c_str(), m_baudrate);
+      ROS_INFO_THROTTLE(1.0, "[%s] url: %s", ros::this_node::getName().c_str(), url.c_str());
 
-      const bool connected = connect();
+      const bool connected = connect(url);
       if (connected)
       {
         m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
-        m_tim_receiving = m_nh.createTimer(ros::Duration(0.05), &Gimbal::receiving_loop, this);
+        m_mavconn_ptr->message_received_cb = std::bind(&Gimbal::msg_callback, this, std::placeholders::_1, std::placeholders::_2);
 
         m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
         m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
@@ -209,7 +223,8 @@ namespace gimbal
         m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
 
-        m_transformer = mrs_lib::Transformer("Gimbal", m_uav_name);
+        m_transformer = mrs_lib::Transformer("Gimbal");
+        m_transformer.setLookupTimeout(ros::Duration(0.1));
       } else
       {
         ROS_ERROR("[Gimbal]: Could not connect to the serial port! Ending.");
@@ -222,18 +237,23 @@ namespace gimbal
   private:
     /* connect() //{ */
 
-    bool connect(void)
+    bool connect(const std::string& url)
     {
-      ROS_INFO_THROTTLE(1.0, "[%s]: Openning the serial port.", ros::this_node::getName().c_str());
+      ROS_INFO_THROTTLE(1.0, "[%s]: Openning the UDP connection.", ros::this_node::getName().c_str());
 
-      if (!m_serial_port.connect(m_portname, m_baudrate))
+      try
       {
-        ROS_ERROR_THROTTLE(1.0, "[%s]: Could not connect to sensor.", ros::this_node::getName().c_str());
-        m_is_connected = false;
-      } else
-      {
+        m_mavconn_ptr = mavconn::MAVConnInterface::open_url(url);
+        m_mavconn_ptr->set_system_id(m_driver_system_id);
+        m_mavconn_ptr->set_component_id(m_driver_component_id);
+        m_mavconn_ptr->set_protocol_version(mavconn::Protocol::V20);
         ROS_INFO_THROTTLE(1.0, "[%s]: Connected to sensor.", ros::this_node::getName().c_str());
         m_is_connected = true;
+      }
+      catch (mavconn::DeviceError& e)
+      {
+        ROS_ERROR_STREAM_THROTTLE(1.0, "[" << ros::this_node::getName() << "]: Could not connect to sensor: " << e.what());
+        m_is_connected = false;
       }
 
       return m_is_connected;
@@ -252,9 +272,8 @@ namespace gimbal
       m_hbs_since_last_request++;
       if (m_hbs_since_last_request >= m_hbs_request_period)
       {
-        const bool success = request_data(m_stream_request_ids, m_stream_request_rates);
-        if (success)
-          m_hbs_since_last_request = 0;
+        request_data(m_stream_request_ids, m_stream_request_rates);
+        m_hbs_since_last_request = 0;
       }
 
       // configure the gimbal every N heartbeats
@@ -263,9 +282,8 @@ namespace gimbal
       m_hbs_since_last_configure++;
       if (m_hbs_since_last_configure >= m_hbs_configure_period)
       {
-        const bool success = configure_mount(m_mount_config);
-        if (success)
-          m_hbs_since_last_configure = 0;
+        configure_mount(m_mount_config);
+        m_hbs_since_last_configure = 0;
       }
 
       // request the euler order every N heartbeats
@@ -274,10 +292,8 @@ namespace gimbal
       m_hbs_since_last_param_request++;
       if (m_hbs_since_last_param_request >= m_hbs_param_request_period)
       {
-        const bool success = request_parameter_list();
-        /* const bool success = request_parameter(EULER_ORDER_PARAM_ID); */
-        if (success)
-          m_hbs_since_last_param_request = 0;
+        request_parameter_list();
+        m_hbs_since_last_param_request = 0;
       }
 
       const uint32_t desired_euler_order = static_cast<uint32_t>(euler_order_t::pitchmotor_roll_yawmotor);
@@ -286,76 +302,36 @@ namespace gimbal
     //}
 
     /* request_data() method //{ */
-    bool request_data(const std::vector<int>& stream_request_ids, const std::vector<int>& stream_request_rates)
+    bool request_data(const std::vector<int>& msg_request_ids, const std::vector<int>& msg_request_intervals)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      // STREAMS that can be requested
-      /*
-       * Definitions are in common.h: enum MAV_DATA_STREAM
-       *
-       * MAV_DATA_STREAM_ALL=0,             * Enable all data streams
-       * MAV_DATA_STREAM_RAW_SENSORS=1,     * Enable IMU_RAW, GPS_RAW, GPS_STATUS packets.
-       * MAV_DATA_STREAM_EXTENDED_STATUS=2, * Enable GPS_STATUS, CONTROL_STATUS, AUX_STATUS
-       * MAV_DATA_STREAM_RC_CHANNELS=3,     * Enable RC_CHANNELS_SCALED, RC_CHANNELS_RAW, SERVO_OUTPUT_RAW
-       * MAV_DATA_STREAM_RAW_CONTROLLER=4,  * Enable ATTITUDE_CONTROLLER_OUTPUT, POSITION_CONTROLLER_OUTPUT, NAV_CONTROLLER_OUTPUT.
-       * MAV_DATA_STREAM_POSITION=6,        * Enable LOCAL_POSITION, GLOBAL_POSITION/GLOBAL_POSITION_INT messages.
-       * MAV_DATA_STREAM_EXTRA1=10,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_EXTRA2=11,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_EXTRA3=12,         * Dependent on the autopilot
-       * MAV_DATA_STREAM_ENUM_END=13,
-       *
-       * Available data from the gimbal is:
-       * MAV_DATA_STREAM_RAW_SENSORS      (1)  - RAW_IMU
-       * MAV_DATA_STREAM_RC_CHANNELS      (3)  - RC_CHANNELS_SCALED
-       * MAV_DATA_STREAM_RAW_CONTROLLER   (4)  - ATTITUDE
-       * MAV_DATA_STREAM_EXTRA1           (10) - ATTITUDE
-       * MAV_DATA_STREAM_EXTRA2           (11) - ATTITUDE
-       */
-
-      // To be setup according to the needed information to be requested from the Pixhawk
-      /* const std::vector<std::tuple<uint8_t, uint16_t>> requests = { {MAV_DATA_STREAM_EXTRA1, 200} }; */
       bool success = true;
 
-      for (int it = 0; it < stream_request_ids.size(); it++)
+      for (int it = 0; it < msg_request_ids.size(); it++)
       {
-        /*
-         * mavlink_msg_request_data_stream_pack(system_id, component_id,
-         *    &msg,
-         *    target_system, target_component,
-         *    MAV_DATA_STREAM_POSITION, 10000000, 1);
-         *
-         * mavlink_msg_request_data_stream_pack(uint8_t system_id, uint8_t component_id,
-         *    mavlink_message_t* msg,
-         *    uint8_t target_system, uint8_t target_component, uint8_t req_stream_id,
-         *    uint16_t req_message_rate, uint8_t start_stop)
-         *
-         */
-        const int request_stream_id_loaded = stream_request_ids.at(it);
-        if (request_stream_id_loaded > std::numeric_limits<uint8_t>::max())
+        const int request_msg_id_loaded = msg_request_ids.at(it);
+        if (request_msg_id_loaded > std::numeric_limits<uint16_t>::max() || request_msg_id_loaded < 0)
         {
-          ROS_ERROR("[Gimbal]: Cannot request stream ID larger than %u (got %d)!", std::numeric_limits<uint8_t>::max(), request_stream_id_loaded);
+          ROS_ERROR("[Gimbal]: Cannot request message ID larger than %u and smaller thatn 0 (got %d)!", std::numeric_limits<uint16_t>::max(), request_msg_id_loaded);
           success = false;
           continue;
         }
-        const uint8_t request_stream_id = static_cast<uint8_t>(request_stream_id_loaded);
+        const uint16_t request_msg_id = static_cast<uint16_t>(request_msg_id_loaded);
 
-        const int request_stream_rate_loaded = stream_request_rates.at(it);
-        if (request_stream_rate_loaded > std::numeric_limits<uint16_t>::max())
+        const int request_msg_interval_loaded = msg_request_intervals.at(it);
+        if (request_msg_interval_loaded > std::numeric_limits<int32_t>::max())
         {
-          ROS_ERROR("[Gimbal]: Cannot request stream rate larger than %u (got %d)!", std::numeric_limits<uint16_t>::max(), request_stream_rate_loaded);
+          ROS_ERROR("[Gimbal]: Cannot request message interval larger than %u (got %d)!", std::numeric_limits<int32_t>::max(), request_msg_interval_loaded);
           success = false;
           continue;
         }
-        const uint16_t request_stream_rate = static_cast<uint16_t>(request_stream_rate_loaded);
+        const int32_t request_msg_interval = static_cast<int32_t>(request_msg_interval_loaded);
 
         const bool start = true;
-        ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message stream #%u at rate %uHz", request_stream_id, request_stream_rate);
-        mavlink_msg_request_data_stream_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, request_stream_id,
-                                             request_stream_rate, start);
-        uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        success = success && m_serial_port.sendCharArray(buf, len);
+        ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message #%u at interval %uus", request_msg_id, request_msg_interval);
+        mavlink::common::msg::MESSAGE_INTERVAL msg;
+        msg.message_id = request_msg_id;
+        msg.interval_us = request_msg_interval;
+        m_mavconn_ptr->send_message(msg);
       }
 
       // TODO: Request the value of the "EULER_ORDER" parameter to know in what format does the attitude arrive
@@ -365,167 +341,133 @@ namespace gimbal
     //}
 
     /* request_parameter_list() method //{ */
-    bool request_parameter_list()
+    void request_parameter_list()
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
       // Request the list of all parameters
-      /* uint16_t mavlink_msg_param_request_list_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint8_t target_system, uint8_t target_component, const char *param_id, int16_t param_index) */
       ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting parameter list");
-      mavlink_msg_param_request_list_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id);
-      uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-      const bool success = m_serial_port.sendCharArray(buf, len);
-
-      return success;
+      mavlink::common::msg::PARAM_REQUEST_LIST msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      m_mavconn_ptr->send_message_ignore_drop(msg);
     }
     //}
 
     /* request_parameter() method //{ */
-    bool request_parameter(const char param_id[16])
+    void request_parameter(const std::array<char, 16>& param_id)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
       // Request the value of the "EULER_ORDER" parameter to know in what format does the attitude arrive
-      /* uint16_t mavlink_msg_param_request_read_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint8_t target_system, uint8_t target_component, const char *param_id, int16_t param_index) */
-      ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting parameter id %s", param_id);
-      const int16_t param_index = -1; // -1 means use the param_id instead of index
-      mavlink_msg_param_request_read_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, param_id, param_index);
-      uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-      const bool success = m_serial_port.sendCharArray(buf, len);
-
-      return success;
+      std::stringstream id_str;
+      for (const auto& c : param_id)
+        id_str << c;
+      ROS_INFO_STREAM("[Gimbal]: |Driver > Gimbal| Requesting parameter ID " << id_str.str());
+      mavlink::common::msg::PARAM_REQUEST_READ msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.param_id = param_id;
+      msg.param_index = -1; // -1 means use the param_id instead of index
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
     /* set_parameter() method //{ */
-    bool set_parameter(const char param_id[16], const float param_value, const uint8_t param_type)
+    void set_parameter(const std::array<char, 16>& param_id, const float param_value, const uint8_t param_type)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      // Set the value of the "EULER_ORDER" parameter to dictate in what format should the attitude arrive
-      /* uint16_t mavlink_msg_param_set_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint8_t target_system, uint8_t target_component, const char *param_id, float param_value, uint8_t param_type) */
-      ROS_INFO("[Gimbal]: |Driver > Gimbal| Setting parameter id %s to %f (type %u)", param_id, param_value, param_type);
-      mavlink_msg_param_set_pack(m_driver_system_id, m_driver_component_id, &msg, m_gimbal_system_id, m_gimbal_component_id, param_id, param_value, param_type);
-      uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-      const bool success = m_serial_port.sendCharArray(buf, len);
-
-      return success;
+      // Set the value of the specified parameter to the specified value
+      std::stringstream id_str;
+      for (const auto& c : param_id)
+        id_str << c;
+      ROS_INFO("[Gimbal]: |Driver > Gimbal| Setting parameter id %s to %f (type %u)", id_str.str().c_str(), param_value, param_type);
+      mavlink::common::msg::PARAM_SET msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.param_id = param_id;
+      msg.param_value = param_value;
+      msg.param_type = param_type;
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
     /* send_heartbeat() method //{ */
-    bool send_heartbeat()
+    void send_heartbeat()
     {
       // Define the system type and some other magic MAVLink constants
-      constexpr uint8_t type = MAV_TYPE_QUADROTOR;               ///< This system is a quadrotor (it's maybe not but it doesn't matter)
-      constexpr uint8_t autopilot_type = MAV_AUTOPILOT_INVALID;  ///< don't even know why this
-      constexpr uint8_t system_mode = MAV_MODE_PREFLIGHT;        ///< Booting up
-      constexpr uint32_t custom_mode = 0;                        ///< Custom mode, can be defined by user/adopter
-      constexpr uint8_t system_state = MAV_STATE_STANDBY;        ///< System ready for flight
+      constexpr auto type = mavlink::common::MAV_TYPE::QUADROTOR;               ///< This system is a quadrotor (it's maybe not but it doesn't matter)
+      constexpr auto autopilot_type = mavlink::common::MAV_AUTOPILOT::INVALID;  ///< don't even know why this
+      constexpr auto system_mode = mavlink::common::MAV_MODE::PREFLIGHT;        ///< Booting up
+      constexpr uint32_t custom_mode = 0;                                       ///< Custom mode, can be defined by user/adopter
+      constexpr auto system_state = mavlink::common::MAV_STATE::STANDBY;        ///< System ready for flight
 
-      // Initialize the required buffers
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      // Pack the message
-      mavlink_msg_heartbeat_pack(m_driver_system_id, m_driver_component_id, &msg, type, autopilot_type, system_mode, custom_mode, system_state);
-
-      // Copy the message to the send buffer
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-
+      mavlink::common::msg::HEARTBEAT msg;
+      msg.type = static_cast<uint8_t>(type);
+      msg.autopilot = static_cast<uint8_t>(autopilot_type);
+      msg.base_mode = static_cast<uint8_t>(system_mode);
+      msg.custom_mode = custom_mode;
+      msg.system_status = static_cast<uint8_t>(system_state);
       // send the heartbeat message
       ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending heartbeat.");
-      return m_serial_port.sendCharArray(buf, len);
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
     /* send_attitude() method //{ */
-    bool send_attitude(const float roll, const float pitch, const float yaw, const float rollspeed, const float pitchspeed, const float yawspeed)
+    void send_attitude(const float roll, const float pitch, const float yaw, const float rollspeed, const float pitchspeed, const float yawspeed)
     {
-      // Initialize the required buffers
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      /* uint16_t mavlink_msg_attitude_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint32_t time_boot_ms, float roll, float pitch, float yaw, float rollspeed, float pitchspeed, float yawspeed) */
-      // Pack the message
       const uint32_t time_boot_ms = (ros::Time::now() - m_start_time).toSec()*1000;
-      mavlink_msg_attitude_pack(m_driver_system_id, m_driver_component_id, &msg, time_boot_ms, roll, pitch, yaw, rollspeed, pitchspeed, yawspeed);
-
-      // Copy the message to the send buffer
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+      mavlink::common::msg::ATTITUDE msg;
+      msg.time_boot_ms = time_boot_ms;
+      msg.roll = roll;
+      msg.pitch = pitch;
+      msg.yaw = yaw;
+      msg.rollspeed = rollspeed;
+      msg.pitchspeed = pitchspeed;
+      msg.yawspeed = yawspeed;
 
       // send the heartbeat message
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending attitude RPY: [%.0f, %.0f, %.0f]deg, RPY vels: [%.0f, %.0f, %.0f]deg/s.", rad2deg(roll), rad2deg(pitch), rad2deg(yaw), rad2deg(rollspeed), rad2deg(pitchspeed), rad2deg(yawspeed));
-      return m_serial_port.sendCharArray(buf, len);
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
     /* send_global_position_int() method //{ */
-    bool send_global_position_int()
+    void send_global_position_int()
     {
-      // Initialize the required buffers
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-
-      /* uint16_t mavlink_msg_global_position_int_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint32_t time_boot_ms, int32_t lat, int32_t lon, int32_t alt, int32_t relative_alt, int16_t vx, int16_t vy, int16_t vz, uint16_t hdg) */
-      // Pack the message
       const uint32_t time_boot_ms = (ros::Time::now() - m_start_time).toSec()*1000;
-      mavlink_msg_global_position_int_pack(m_driver_system_id, m_driver_component_id, &msg,
-          time_boot_ms,
-          0, 0, 0, 0,
-          0, 0, 0,
-          0);
-
-      // Copy the message to the send buffer
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-
-      // send the heartbeat message
+      mavlink::common::msg::GLOBAL_POSITION_INT msg;
+      msg.time_boot_ms = time_boot_ms;
+      msg.lat = 0;
+      msg.lon = 0;
+      msg.alt = 0;
+      msg.relative_alt = 0;
+      msg.vx = 0;
+      msg.vy = 0;
+      msg.vz = 0;
+      msg.hdg = 0;
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending global position int (all zeros)");
-      return m_serial_port.sendCharArray(buf, len);
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
     /* configure_mount() method //{ */
-    bool configure_mount(const mount_config_t& mount_config)
+    void configure_mount(const mount_config_t& mount_config)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-      /* uint16_t mavlink_msg_command_long_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint8_t target_system, uint8_t target_component, uint16_t command, uint8_t confirmation, float param1, float param2,
-       * float param3, float param4, float param5, float param6, float param7) */
-
-      // MAV_CMD_DO_MOUNT_CONFIGURE command parameters (https://mavlink.io/en/messages/common.html#MAV_CMD_DO_MOUNT_CONFIGURE):
-      /* 1: Mode	Mount operation mode (MAV_MOUNT_MODE) */
-      /* 2: Stabilize Roll	stabilize roll? (1 = yes, 0 = no)	min:0 max:1 increment:1 */
-      /* 3: Stabilize Pitch	stabilize pitch? (1 = yes, 0 = no)	min:0 max:1 increment:1 */
-      /* 4: Stabilize Yaw	stabilize yaw? (1 = yes, 0 = no)	min:0 max:1 increment:1 */
-      /* 5: Roll Input Mode	roll input (0 = angle body frame, 1 = angular rate, 2 = angle absolute frame) */
-      /* 6: Pitch Input Mode	pitch input (0 = angle body frame, 1 = angular rate, 2 = angle absolute frame) */
-      /* 7: Yaw Input Mode	yaw input (0 = angle body frame, 1 = angular rate, 2 = angle absolute frame) */
-      mavlink_msg_command_long_pack(m_driver_system_id, m_driver_component_id, &msg,
-                                    // tgt. system id,  tgt. component id,      command id,                 confirmation
-                                    m_gimbal_system_id, m_gimbal_component_id, MAV_CMD_DO_MOUNT_CONFIGURE, 0,
-                                    // command parameters
-                                    MAV_MOUNT_MODE_MAVLINK_TARGETING, (float)mount_config.stabilize_roll, (float)mount_config.stabilize_pitch,
-                                    (float)mount_config.stabilize_yaw, (float)mount_config.roll_input_mode, (float)mount_config.pitch_input_mode,
-                                    (float)mount_config.yaw_input_mode);
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-
-      // send the heartbeat message
+      mavlink::common::msg::COMMAND_LONG msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_MOUNT_CONFIGURE);
+      msg.confirmation = 0;
+      msg.param1 = static_cast<float>(mavlink::common::MAV_MOUNT_MODE::MAVLINK_TARGETING);
+      msg.param2 = static_cast<float>(mount_config.stabilize_roll);
+      msg.param3 = static_cast<float>(mount_config.stabilize_pitch);
+      msg.param4 = static_cast<float>(mount_config.stabilize_yaw);
+      msg.param5 = static_cast<float>(mount_config.roll_input_mode);
+      msg.param6 = static_cast<float>(mount_config.pitch_input_mode);
+      msg.param7 = static_cast<float>(mount_config.yaw_input_mode);
       ROS_INFO_THROTTLE(1.0,
                         "[Gimbal]: |Driver > Gimbal| Sending mount configuration command (stab. roll: %d, stab. pitch: %d, stab. yaw: %d, roll mode: %d, pitch "
                         "mode: %d, yaw mode: %d).",
                         mount_config.stabilize_roll, mount_config.stabilize_pitch, mount_config.stabilize_yaw, (int)mount_config.roll_input_mode,
                         (int)mount_config.pitch_input_mode, (int)mount_config.yaw_input_mode);
-      return m_serial_port.sendCharArray(buf, len);
+      m_mavconn_ptr->send_message_ignore_drop(msg);
     }
     //}
 
@@ -556,7 +498,7 @@ namespace gimbal
     /* cmd_orientation_cbk() method //{ */
     void cmd_orientation_cbk(geometry_msgs::QuaternionStamped::ConstPtr cmd_orientation)
     {
-      const auto ori_opt = m_transformer.transformSingle(m_base_frame_id, cmd_orientation);
+      const auto ori_opt = m_transformer.transformSingle(cmd_orientation, m_base_frame_id);
       if (!ori_opt.has_value())
       {
         ROS_ERROR_THROTTLE(1.0, "[Gimbal]: Could not transform commanded orientation from frame %s to %s, ignoring.", cmd_orientation->header.frame_id.c_str(), m_base_frame_id.c_str());
@@ -585,14 +527,8 @@ namespace gimbal
     //}
 
     /* command_mount() method //{ */
-    bool command_mount(const double pitch, const double roll, const double yaw)
+    void command_mount(const double pitch, const double roll, const double yaw)
     {
-      mavlink_message_t msg;
-      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-      /* uint16_t mavlink_msg_command_long_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, */
-      /*                                uint8_t target_system, uint8_t target_component, uint16_t command, uint8_t confirmation, float param1, float param2,
-       * float param3, float param4, float param5, float param6, float param7) */
-
       // recalculate to degrees
       const float pitch_deg = static_cast<float>(pitch/M_PI*180.0);
       const float roll_deg = static_cast<float>(roll/M_PI*180.0);
@@ -606,16 +542,21 @@ namespace gimbal
       /* 5: Latitude	  latitude, set if appropriate mount mode. */
       /* 6: Longitude	  longitude, set if appropriate mount mode. */
       /* 7: Mode	      Mount mode.	(MAV_MOUNT_MODE) */
-      mavlink_msg_command_long_pack(m_driver_system_id, m_driver_component_id, &msg,
-                                    // tgt. system id,  tgt. component id,      command id,               confirmation
-                                    m_gimbal_system_id, m_gimbal_component_id, MAV_CMD_DO_MOUNT_CONTROL, 0,
-                                    // command parameters
-                                    pitch_deg, roll_deg, yaw_deg, 0, 0, 0, MAV_MOUNT_MODE_MAVLINK_TARGETING);
-      const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
 
-      // send the heartbeat message
+      mavlink::common::msg::COMMAND_LONG msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_MOUNT_CONTROL);
+      msg.confirmation = 0;
+      msg.param1 = static_cast<float>(pitch_deg);
+      msg.param2 = static_cast<float>(roll_deg);
+      msg.param3 = static_cast<float>(yaw_deg);
+      msg.param4 = static_cast<float>(0);
+      msg.param5 = static_cast<float>(0);
+      msg.param6 = static_cast<float>(0);
+      msg.param7 = static_cast<float>(mavlink::common::MAV_MOUNT_MODE::MAVLINK_TARGETING);
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg, yaw: %.0fdeg).", pitch_deg, roll_deg, yaw_deg);
-      const bool ret = m_serial_port.sendCharArray(buf, len);
+      m_mavconn_ptr->send_message(msg);
 
       const quat_t q = pry2quat(pitch, roll, yaw, false);
       nav_msgs::OdometryPtr ros_msg = boost::make_shared<nav_msgs::Odometry>();
@@ -627,102 +568,83 @@ namespace gimbal
       ros_msg->pose.pose.orientation.z = q.z();
       ros_msg->pose.pose.orientation.w = q.w();
       m_pub_command.publish(ros_msg);
-
-      return ret;
     }
     //}
 
-    /* receiving_loop() method //{ */
-    void receiving_loop([[maybe_unused]] const ros::TimerEvent& evt)
+    /* msg_callback() method //{ */
+    void msg_callback(const mavlink::mavlink_message_t* msg, const mavconn::Framing framing)
     {
-      mavlink_message_t msg;
-      mavlink_status_t status;
-
-      uint8_t c;
-      while (m_serial_port.readChar(&c))
+      if (framing != mavconn::Framing::ok)
       {
-        m_chars_received++;
-        // Try to get a new message
-        if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status))
+        ROS_ERROR_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Received message with bad framing, ignoring.");
+        return;
+      }
+      mavlink::MsgMap msg_map(msg);
+
+      // Handle message
+      switch (msg->msgid)
+      {
+        case mavlink::common::msg::HEARTBEAT::MSG_ID:  // #0: Heartbeat
         {
-          // Handle message
-          switch (msg.msgid)
-          {
-            case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal heartbeat.");
-            }
-            break;
-
-            case MAVLINK_MSG_ID_SYS_STATUS:  // #1: SYS_STATUS
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal status.");
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_sys_status_decode(const mavlink_message_t* msg, mavlink_sys_status_t* sys_status)
-               */
-              mavlink_sys_status_t sys_status;
-              mavlink_msg_sys_status_decode(&msg, &sys_status);
-            }
-            break;
-
-            case MAVLINK_MSG_ID_PARAM_VALUE:  // #22: PARAM_VALUE
-            {
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal param value.");
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_param_value_decode(const mavlink_message_t* msg, mavlink_param_value_t* param_value)
-               */
-              mavlink_param_value_t param_value;
-              mavlink_msg_param_value_decode(&msg, &param_value);
-              process_param_value_msg(param_value);
-            }
-            break;
-
-            case MAVLINK_MSG_ID_ATTITUDE:  // #30
-            {
-              /* Message decoding: PRIMITIVE
-               *    mavlink_msg_attitude_decode(const mavlink_message_t* msg, mavlink_attitude_t* attitude)
-               */
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal attitude.");
-              mavlink_attitude_t attitude;
-              mavlink_msg_attitude_decode(&msg, &attitude);
-              process_attitude_msg(attitude, m_euler_ordering);
-            }
-            break;
-
-            default:
-              ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving unhandled message #%u, ignoring.", msg.msgid);
-              break;
-          }
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal heartbeat.");
         }
+        break;
 
-        if (status.parse_error == 0)
-          m_valid_chars_received++;
-        const double valid_perc = 100.0 * m_valid_chars_received / m_chars_received;
-        ROS_INFO_STREAM_THROTTLE(
-            2.0, "[Gimbal]: Received " << m_valid_chars_received << "/" << m_chars_received << " valid characters so far (" << valid_perc << "%).");
+        case mavlink::common::msg::SYS_STATUS::MSG_ID:  // #1: SYS_STATUS
+        {
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal status.");
+          mavlink::common::msg::SYS_STATUS decoded;
+          decoded.deserialize(msg_map);
+        }
+        break;
+
+        case mavlink::common::msg::PARAM_VALUE::MSG_ID:  // #22: PARAM_VALUE
+        {
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal param value.");
+          mavlink::common::msg::PARAM_VALUE decoded;
+          decoded.deserialize(msg_map);
+          process_param_value_msg(decoded);
+        }
+        break;
+
+        case mavlink::common::msg::ATTITUDE::MSG_ID:  // #30
+        {
+          /* Message decoding: PRIMITIVE
+           *    mavlink_msg_attitude_decode(const mavlink_message_t* msg, mavlink_attitude_t* attitude)
+           */
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal attitude.");
+          mavlink::common::msg::ATTITUDE decoded;
+          decoded.deserialize(msg_map);
+          process_attitude_msg(decoded, m_euler_ordering);
+        }
+        break;
+
+        default:
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving unhandled message #%u, ignoring.", msg->msgid);
+          break;
       }
     }
     //}
 
     /* process_param_value_msg() method //{ */
-    void process_param_value_msg(const mavlink_param_value_t& param_value)
+    void process_param_value_msg(const mavlink::common::msg::PARAM_VALUE& param_value)
     {
       char param_id[17];
       param_id[16] = 0;
       std::copy_n(std::begin(param_value.param_id), 16, param_id);
     
-      if (std::strcmp(param_id, EULER_ORDER_PARAM_ID) == 0)
+      if (std::strcmp(param_id, EULER_ORDER_PARAM_ID.data()) == 0)
       {
         // | ----------------------- EULER_ORDER ---------------------- |
         const uint32_t value = *((uint32_t*)(&param_value.param_value));
         if (value >= 0 && value < static_cast<uint32_t>(euler_order_t::unknown))
         {
           m_euler_ordering = static_cast<euler_order_t>(value);
-          ROS_INFO_THROTTLE(1.0, "[Gimbal]: %s parameter is %d (raw is %f, type is %u).", EULER_ORDER_PARAM_ID, (int)m_euler_ordering, param_value.param_value, param_value.param_type);
+          ROS_INFO_THROTTLE(1.0, "[Gimbal]: %s parameter is %d (raw is %f, type is %u).", EULER_ORDER_PARAM_ID.data(), (int)m_euler_ordering, param_value.param_value, param_value.param_type);
         }
         else
         {
-          ROS_ERROR("[Gimbal]: Unknown value of %s received: %f (type: %u), ignoring.", EULER_ORDER_PARAM_ID, param_value.param_value, param_value.param_type);
+          ROS_ERROR("[Gimbal]: Unknown value of %s received: %f (type: %u), ignoring.", EULER_ORDER_PARAM_ID.data(), param_value.param_value, param_value.param_type);
           m_euler_ordering = euler_order_t::unknown;
         }
       }
@@ -750,7 +672,7 @@ namespace gimbal
     }
 
     /* process_attitude_msg() method //{ */
-    void process_attitude_msg(const mavlink_attitude_t& attitude, const euler_order_t& euler_order)
+    void process_attitude_msg(const mavlink::common::msg::ATTITUDE& attitude, const euler_order_t& euler_order)
     {
       // TODO: this is probably wrong, but works so far for "pitchmotor_roll_yawmotor"
       // TODO: complete this for other euler angle orderings if necessary
@@ -813,7 +735,6 @@ namespace gimbal
     tf2_ros::TransformBroadcaster m_pub_transform;
 
     mrs_lib::Transformer m_transformer;
-    serial_port::SerialPortThreadsafe m_serial_port;
 
     // --------------------------------------------------------------
     // |                 Parameters, loaded from ROS                |
@@ -841,6 +762,7 @@ namespace gimbal
     const ros::Time m_start_time = ros::Time::now();
     ros::Time m_last_sent_time = ros::Time::now();
     bool m_is_connected = false;
+    mavconn::MAVConnInterface::Ptr m_mavconn_ptr = nullptr;
 
     int m_hbs_since_last_request = 2;
     int m_hbs_request_period = 5;

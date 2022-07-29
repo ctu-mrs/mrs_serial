@@ -45,7 +45,7 @@ target_link_libraries(Servo
   ${catkin_LIBRARIES}
   )
 
-add_library(Gimbal src/gimbal_mavlink.cpp)
+add_library(Gimbal src/gimbal.cpp)
 target_link_libraries(Gimbal
   ${catkin_LIBRARIES}
   )
