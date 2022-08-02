@@ -34,7 +34,12 @@
 
       <rosparam file="$(find mrs_serial)/config/gimbal.yaml" />
 
-      <param name="url" value="udp://:11454@192.168.0.205:10024"/>
+      <!-- <param name="bind/host" value="0.0.0.0"/> -->
+      <param name="bind/host" value="192.168.0.5"/>
+      <param name="bind/port" value="10024"/>
+      <param name="remote/host" value="192.168.0.203"/>
+      <param name="remote/port" value="10024"/>
+
       <param name="use_timeout" value="false"/>
 
     </node>

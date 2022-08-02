@@ -1,16 +1,16 @@
 mavlink:
   # how often should the driver send a heartbeat to the gimbal
-  heartbeat_period: 1.0 # seconds
+  heartbeat_period: 0.05 # seconds
 
   # this is the default system and component ID for an autopilot
   driver:
     system_id: 1
-    component_id: 1
+    component_id: 240
 
   # this is the default system and component ID for gimbals
   gimbal:
     system_id: 1
-    component_id: 154
+    component_id: 0
 
 # Example useful streams that can be requested from SimpleBGC gimbals include:
 # enum name                         enum value    returned stream
@@ -24,9 +24,9 @@ stream_requests:
   rates: [200]
 
 mount:
-  stabilize_roll: false
-  stabilize_pitch: false
-  stabilize_yaw: false
+  stabilize_roll: true
+  stabilize_pitch: true
+  stabilize_yaw: true
   # Possible input modes:
   # enum name             enum value
   # angle_body_frame      0
