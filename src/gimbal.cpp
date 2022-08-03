@@ -6,6 +6,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/QuaternionStamped.h>
+#include <std_msgs/String.h>
 #include <nodelet/nodelet.h>
 #include <pluginlib/class_list_macros.h>
 
@@ -123,24 +124,7 @@ namespace gimbal
 
     // https://mavlink.io/en/messages/common.html
 
-    enum MAV_CMD
-    {
-      MAV_CMD_DO_MOUNT_CONFIGURE = 204,  //< Mission command to configure a camera or antenna mount
-      MAV_CMD_DO_MOUNT_CONTROL = 205,    //< Mission command to control a camera or antenna mount
-    };
-
-    enum MAV_MOUNT_MODE
-    {
-      MAV_MOUNT_MODE_RETRACT = 0,            //<	Load and keep safe position (Roll,Pitch,Yaw) from permant memory and stop stabilization
-      MAV_MOUNT_MODE_NEUTRAL = 1,            //<	Load and keep neutral position (Roll,Pitch,Yaw) from permanent memory.
-      MAV_MOUNT_MODE_MAVLINK_TARGETING = 2,  //<	Load neutral position and start MAVLink Roll,Pitch,Yaw control with stabilization
-      MAV_MOUNT_MODE_RC_TARGETING = 3,       //<	Load neutral position and start RC Roll,Pitch,Yaw control with stabilization
-      MAV_MOUNT_MODE_GPS_POINT = 4,          //<	Load neutral position and start to point to Lat,Lon,Alt
-      MAV_MOUNT_MODE_SYSID_TARGET = 5,       //<	Gimbal tracks system with specified system ID
-      MAV_MOUNT_MODE_HOME_LOCATION = 6,      //<	Gimbal tracks home location
-    };
-
-    enum OS_Cmd
+    enum class OS_Cmd_t
     {
       set_system_mode = 0,
       take_snapshot = 1,
@@ -149,9 +133,10 @@ namespace gimbal
       set_fov = 4,
       set_sharpness = 5,
       // others
+      stream_control = 57,
     };
 
-    enum camera_mode
+    enum class camera_mode_t
     {
       stow = 0,
       pilot = 1,
@@ -167,6 +152,128 @@ namespace gimbal
       scan_2D = 11,
       point_to_coordinate = 12,
       unstabilized_position = 13,
+    };
+
+    enum class report_type_t : uint16_t
+    {
+      system = 0,
+      los = 1,
+      ground_crossing = 2,
+      sd_card = 6,
+      snapshot = 5,
+      video = 7,
+      los_direction_and_rate = 8,
+      object_detection = 9,
+      object_detection_car_count = 16,
+      imu = 10,
+      fire = 11,
+      tracking = 12,
+      lpr = 13,
+      augmented_reality_markers = 14,
+      parameter = 15,
+      oglr = 17,
+      video_motion_detection = 18,
+    };
+
+    std::string to_str(const report_type_t report_type)
+    {
+      switch (report_type)
+      {
+        case report_type_t::system: return "system";
+        case report_type_t::los: return "los";
+        case report_type_t::ground_crossing: return "ground_crossing";
+        case report_type_t::sd_card: return "sd_card";
+        case report_type_t::snapshot: return "snapshot";
+        case report_type_t::video: return "video";
+        case report_type_t::los_direction_and_rate: return "los_direction_and_rate";
+        case report_type_t::object_detection: return "object_detection";
+        case report_type_t::object_detection_car_count: return "object_detection_car_count";
+        case report_type_t::imu: return "imu";
+        case report_type_t::fire: return "fire";
+        case report_type_t::tracking: return "tracking";
+        case report_type_t::lpr: return "lpr";
+        case report_type_t::augmented_reality_markers: return "augmented_reality_markers";
+        case report_type_t::parameter: return "parameter";
+        case report_type_t::oglr: return "oglr";
+        case report_type_t::video_motion_detection: return "video_motion_detection";
+        default: return "unknown";
+      }
+    }
+
+    enum class system_state_t : uint8_t
+    {
+      stow = 0,
+      pilot = 1,
+      retract = 2,
+      retract_lock = 3,
+      observation = 4,
+      grr = 5,
+      hold_coordinate = 6,
+      point_to_coordinate = 7,
+      local_position = 8,
+      global_position = 9,
+      track = 10,
+      extended_pitch_range = 11,
+      bit = 12,
+      nadir = 13,
+    };
+
+    std::string to_str(const system_state_t system_state)
+    {
+      switch (system_state)
+      {
+        case system_state_t::stow: return "stow";
+        case system_state_t::pilot: return "pilot";
+        case system_state_t::retract: return "retract";
+        case system_state_t::retract_lock: return "retract_lock";
+        case system_state_t::observation: return "observation";
+        case system_state_t::grr: return "grr";
+        case system_state_t::hold_coordinate: return "hold_coordinate";
+        case system_state_t::point_to_coordinate: return "point_to_coordinate";
+        case system_state_t::local_position: return "local_position";
+        case system_state_t::global_position: return "global_position";
+        case system_state_t::track: return "track";
+        case system_state_t::extended_pitch_range: return "extended_pitch_range";
+        case system_state_t::bit: return "bit";
+        case system_state_t::nadir: return "nadir";
+        default: return "unknown";
+      }
+    }
+
+    enum class stream_mode_t : uint8_t
+    {
+      disabled = 0,
+      day = 1,
+      ir = 2,
+      fusion = 3,
+      pip = 4,
+      side_by_side = 5,
+    };
+
+    std::string to_str(const stream_mode_t stream_mode)
+    {
+      switch (stream_mode)
+      {
+        case stream_mode_t::disabled: return "disabled";
+        case stream_mode_t::day: return "day";
+        case stream_mode_t::ir: return "ir";
+        case stream_mode_t::fusion: return "fusion";
+        case stream_mode_t::pip: return "pip";
+        case stream_mode_t::side_by_side: return "side_by_side";
+        default: return "unknown";
+      }
+    }
+
+    enum class pip_mode_t : uint8_t
+    {
+      pip_day_large = 0,
+      pip_ir_large = 1,
+    };
+
+    enum class sbs_mode_t : uint8_t
+    {
+      day_left_ir_right = 0,
+      day_right_ir_left = 1,
     };
 
     using mat3_t = Eigen::Matrix3d;
@@ -246,6 +353,7 @@ namespace gimbal
         m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
         m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
+        m_sub_stream_mode = m_nh.subscribe("stream_mode", 10, &Gimbal::stream_mode_cbk, this);
 
         m_transformer = mrs_lib::Transformer("Gimbal");
         m_transformer.setLookupTimeout(ros::Duration(0.1));
@@ -295,110 +403,6 @@ namespace gimbal
       send_heartbeat();
       const auto [cmd_pitch, cmd_roll, cmd_yaw] = mrs_lib::get_mutexed(m_cmd_mtx, m_cmd_pitch, m_cmd_roll, m_cmd_yaw);
       command_mount(cmd_pitch, cmd_roll, cmd_yaw);
-
-      // request data from the gimbal every N heartbeats
-      // to make sure the gimbal hears it and not to
-      // overwhelm the serial line at the same time
-      m_hbs_since_last_request++;
-      if (m_hbs_since_last_request >= m_hbs_request_period)
-      {
-        request_data(m_stream_request_ids, m_stream_request_rates);
-        m_hbs_since_last_request = 0;
-      }
-
-      // request the euler order every N heartbeats
-      // to make sure the gimbal hears it and not to
-      // overwhelm the serial line at the same time
-      m_hbs_since_last_param_request++;
-      if (m_hbs_since_last_param_request >= m_hbs_param_request_period)
-      {
-        request_parameter_list();
-        m_hbs_since_last_param_request = 0;
-      }
-    }
-    //}
-
-    /* request_data() method //{ */
-    bool request_data(const std::vector<int>& msg_request_ids, const std::vector<int>& msg_request_intervals)
-    {
-      bool success = true;
-
-      for (int it = 0; it < msg_request_ids.size(); it++)
-      {
-        const int request_msg_id_loaded = msg_request_ids.at(it);
-        if (request_msg_id_loaded > std::numeric_limits<uint16_t>::max() || request_msg_id_loaded < 0)
-        {
-          ROS_ERROR("[Gimbal]: Cannot request message ID larger than %u and smaller thatn 0 (got %d)!", std::numeric_limits<uint16_t>::max(), request_msg_id_loaded);
-          success = false;
-          continue;
-        }
-        const uint16_t request_msg_id = static_cast<uint16_t>(request_msg_id_loaded);
-
-        const int request_msg_interval_loaded = msg_request_intervals.at(it);
-        if (request_msg_interval_loaded > std::numeric_limits<int32_t>::max())
-        {
-          ROS_ERROR("[Gimbal]: Cannot request message interval larger than %u (got %d)!", std::numeric_limits<int32_t>::max(), request_msg_interval_loaded);
-          success = false;
-          continue;
-        }
-        const int32_t request_msg_interval = static_cast<int32_t>(request_msg_interval_loaded);
-
-        const bool start = true;
-        ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting message #%u at interval %uus", request_msg_id, request_msg_interval);
-        mavlink::common::msg::MESSAGE_INTERVAL msg;
-        msg.message_id = request_msg_id;
-        msg.interval_us = request_msg_interval;
-        m_mavconn_ptr->send_message(msg);
-      }
-
-      return success;
-    }
-    //}
-
-    /* request_parameter_list() method //{ */
-    void request_parameter_list()
-    {
-      // Request the list of all parameters
-      ROS_INFO("[Gimbal]: |Driver > Gimbal| Requesting parameter list");
-      mavlink::common::msg::PARAM_REQUEST_LIST msg;
-      msg.target_system = m_gimbal_system_id;
-      msg.target_component = m_gimbal_component_id;
-      m_mavconn_ptr->send_message_ignore_drop(msg);
-    }
-    //}
-
-    /* request_parameter() method //{ */
-    void request_parameter(const std::array<char, 16>& param_id)
-    {
-      // Request the value of the parameter to know in what format does the attitude arrive
-      std::stringstream id_str;
-      for (const auto& c : param_id)
-        id_str << c;
-      ROS_INFO_STREAM("[Gimbal]: |Driver > Gimbal| Requesting parameter ID " << id_str.str());
-      mavlink::common::msg::PARAM_REQUEST_READ msg;
-      msg.target_system = m_gimbal_system_id;
-      msg.target_component = m_gimbal_component_id;
-      msg.param_id = param_id;
-      msg.param_index = -1; // -1 means use the param_id instead of index
-      m_mavconn_ptr->send_message(msg);
-    }
-    //}
-
-    /* set_parameter() method //{ */
-    void set_parameter(const std::array<char, 16>& param_id, const float param_value, const uint8_t param_type)
-    {
-      // Set the value of the specified parameter to the specified value
-      std::stringstream id_str;
-      for (const auto& c : param_id)
-        id_str << c;
-      ROS_INFO("[Gimbal]: |Driver > Gimbal| Setting parameter id %s to %f (type %u)", id_str.str().c_str(), param_value, param_type);
-      mavlink::common::msg::PARAM_SET msg;
-      msg.target_system = m_gimbal_system_id;
-      msg.target_component = m_gimbal_component_id;
-      msg.param_id = param_id;
-      msg.param_value = param_value;
-      msg.param_type = param_type;
-      m_mavconn_ptr->send_message(msg);
     }
     //}
 
@@ -487,7 +491,7 @@ namespace gimbal
     //}
 
     /* cmd_orientation_cbk() method //{ */
-    void cmd_orientation_cbk(geometry_msgs::QuaternionStamped::ConstPtr cmd_orientation)
+    void cmd_orientation_cbk(const geometry_msgs::QuaternionStamped::ConstPtr cmd_orientation)
     {
       const auto ori_opt = m_transformer.transformSingle(cmd_orientation, m_base_frame_id);
       if (!ori_opt.has_value())
@@ -512,12 +516,33 @@ namespace gimbal
     //}
 
     /* cmd_pry_cbk() method //{ */
-    void cmd_pry_cbk(mrs_msgs::GimbalPRY::ConstPtr cmd_pry)
+    void cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr cmd_pry)
     {
       const double pitch = static_cast<double>(cmd_pry->pitch);
       const double roll = static_cast<double>(cmd_pry->roll);
       const double yaw = static_cast<double>(cmd_pry->yaw);
       mrs_lib::set_mutexed(m_cmd_mtx, std::make_tuple(pitch, roll, yaw), std::forward_as_tuple(m_cmd_pitch, m_cmd_roll, m_cmd_yaw));
+    }
+    //}
+
+    /* stream_mode_cbk() method //{ */
+    void stream_mode_cbk(const std_msgs::String::ConstPtr stream_mode_msg)
+    {
+      stream_mode_t stream_mode;
+      bool found = false;
+      for (int it = 0; it < int(stream_mode_t::side_by_side); it++)
+      {
+        if (to_str(stream_mode_t(it)) == stream_mode_msg->data)
+        {
+          stream_mode = stream_mode_t(it);
+          found = true;
+          break;
+        }
+      }
+      if (found)
+        set_stream(stream_mode);
+      else
+        ROS_ERROR("[Gimbal]: Unknown stream mode: %s", stream_mode_msg->data.c_str());
     }
     //}
 
@@ -529,31 +554,22 @@ namespace gimbal
       const float roll_deg = static_cast<float>(roll/M_PI*180.0);
       const float yaw_deg = static_cast<float>(yaw/M_PI*180.0);
 
-      // MAV_CMD_DO_MOUNT_CONTROL command parameters (https://mavlink.io/en/messages/common.html#MAV_CMD_DO_MOUNT_CONTROL):
-      /* 1: Pitch	      pitch depending on mount mode (degrees or degrees/second depending on pitch input). */
-      /* 2: Roll	      roll depending on mount mode (degrees or degrees/second depending on roll input). */
-      /* 3: Yaw	        yaw depending on mount mode (degrees or degrees/second depending on yaw input). */
-      /* 4: Altitude	  altitude depending on mount mode.	(m) */
-      /* 5: Latitude	  latitude, set if appropriate mount mode. */
-      /* 6: Longitude	  longitude, set if appropriate mount mode. */
-      /* 7: Mode	      Mount mode.	(MAV_MOUNT_MODE) */
-
       mavlink::common::msg::COMMAND_LONG msg;
       msg.target_system = m_gimbal_system_id;
       msg.target_component = m_gimbal_component_id;
       msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
       msg.confirmation = 0;
-      msg.param1 = OS_Cmd::set_system_mode;
-      msg.param2 = camera_mode::local_position;
-      msg.param3 = static_cast<float>(roll_deg);
+      msg.param1 = static_cast<float>(OS_Cmd_t::set_system_mode);
+      msg.param2 = static_cast<float>(camera_mode_t::local_position);
+      msg.param3 = static_cast<float>(pitch_deg);
       msg.param4 = static_cast<float>(roll_deg);
-      msg.param5 = static_cast<float>(yaw_deg);
+      msg.param5 = static_cast<float>(0);
       msg.param6 = static_cast<float>(0);
       msg.param7 = static_cast<float>(0);
-      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg, yaw: %.0fdeg).", pitch_deg, roll_deg, yaw_deg);
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg).", pitch_deg, roll_deg);
       m_mavconn_ptr->send_message(msg);
 
-      const quat_t q = pry2quat(pitch, roll, yaw, false);
+      const quat_t q = pry2quat(pitch, 0.0, roll, false);
       nav_msgs::OdometryPtr ros_msg = boost::make_shared<nav_msgs::Odometry>();
       ros_msg->header.frame_id = m_base_frame_id;
       ros_msg->header.stamp = ros::Time::now();
@@ -563,6 +579,26 @@ namespace gimbal
       ros_msg->pose.pose.orientation.z = q.z();
       ros_msg->pose.pose.orientation.w = q.w();
       m_pub_command.publish(ros_msg);
+    }
+    //}
+
+    /* set_stream() method //{ */
+    void set_stream(const stream_mode_t stream_mode, const pip_mode_t pip_mode = pip_mode_t::pip_day_large, const sbs_mode_t sbs_mode = sbs_mode_t::day_left_ir_right)
+    {
+      mavlink::common::msg::COMMAND_LONG msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
+      msg.confirmation = 0;
+      msg.param1 = static_cast<float>(OS_Cmd_t::stream_control);
+      msg.param2 = static_cast<float>(0);
+      msg.param3 = static_cast<float>(stream_mode);
+      msg.param4 = static_cast<float>(0);
+      msg.param5 = static_cast<float>(0);
+      msg.param6 = static_cast<float>(0);
+      msg.param7 = static_cast<float>(0);
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Setting stream mode to %s.", to_str(stream_mode).c_str());
+      m_mavconn_ptr->send_message(msg);
     }
     //}
 
@@ -620,9 +656,7 @@ namespace gimbal
         case mavlink::common::msg::V2_EXTENSION::MSG_ID:  // #248: V2_EXTENSION
         {
           ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving V2 extension from sysid %d, compid %d.", msg->sysid, msg->compid);
-          mavlink::common::msg::V2_EXTENSION decoded;
-          decoded.deserialize(msg_map);
-          
+          process_extension_msg(msg);
         }
         break;
 
@@ -632,6 +666,68 @@ namespace gimbal
       }
     }
     //}
+
+    // fujky
+    template<typename T>
+    T parse(const uint8_t* buffer, uint8_t& offset)
+    {
+      const uint16_t ret = *(static_cast<const T*>(static_cast<const void*>(buffer+offset)));
+      offset += sizeof(T);
+      return ret;
+    }
+
+    void parse_system_report(const mavlink::mavlink_message_t* msg)
+    {
+      const uint8_t* payload = static_cast<const uint8_t*>(static_cast<const void*>(msg->payload64));
+      constexpr uint8_t i0 = 6;
+      uint8_t i = 8-i0;
+      const auto roll_deg = parse<float>(payload, i);
+      const auto pitch_deg = parse<float>(payload, i);
+      const auto fov = parse<float>(payload, i);
+
+      i = 24-i0;
+      const auto system_state = static_cast<system_state_t>(parse<uint8_t>(payload, i));
+
+      // skip some uninteresting stuff
+      i = 51-i0;
+      const auto roll_rate_degs = parse<float>(payload, i);
+      const auto pitch_rate_degs = parse<float>(payload, i);
+      const auto camera_temp = parse<float>(payload, i);
+
+      const double roll = roll_deg/180.0*M_PI;
+      const double pitch = pitch_deg/180.0*M_PI;
+      const double roll_rate = roll_rate_degs/180.0*M_PI;
+      const double pitch_rate = pitch_rate_degs/180.0*M_PI;
+
+      const quat_t q = pry2quat(pitch, 0.0, roll, false);
+      nav_msgs::OdometryPtr ros_msg = boost::make_shared<nav_msgs::Odometry>();
+      ros_msg->header.frame_id = m_base_frame_id;
+      ros_msg->header.stamp = ros::Time::now();
+      ros_msg->child_frame_id = m_child_frame_id;
+      ros_msg->pose.pose.orientation.x = q.x();
+      ros_msg->pose.pose.orientation.y = q.y();
+      ros_msg->pose.pose.orientation.z = q.z();
+      ros_msg->pose.pose.orientation.w = q.w();
+      ros_msg->twist.twist.angular.x = roll_rate;
+      ros_msg->twist.twist.angular.y = pitch_rate;
+      m_pub_attitude.publish(ros_msg);
+
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: System state: %s\n\troll: %.2fdeg (%.2fdeg/s)\n\tpitch: %.2fdeg (%.2fdeg/s)\n\tfov: %.2fdeg\n\tcamera temp: %.2fdeg C", to_str(system_state).c_str(), roll_deg, roll_rate_degs, pitch_deg, pitch_rate_degs, fov, camera_temp);
+    }
+
+    void process_extension_msg(const mavlink::mavlink_message_t* msg)
+    {
+      const uint8_t* payload = static_cast<const uint8_t*>(static_cast<const void*>(msg->payload64));
+      constexpr uint8_t i0 = 6;
+      uint8_t i = 6-i0;
+      const report_type_t report_type = static_cast<report_type_t>(parse<uint16_t>(payload, i));
+
+      switch (report_type)
+      {
+        case report_type_t::system: parse_system_report(msg); break;
+        default: ROS_WARN_THROTTLE(1.0, "[Gimbal]: Received extension message with %s report type, ignoring.", to_str(report_type).c_str());
+      }
+    }
 
     quat_t rpy2quat(const double roll, const double pitch, const double yaw, const bool extrinsic)
     {
@@ -659,6 +755,7 @@ namespace gimbal
     ros::Subscriber m_sub_attitude;
     ros::Subscriber m_sub_command;
     ros::Subscriber m_sub_pry;
+    ros::Subscriber m_sub_stream_mode;
 
     ros::Publisher m_pub_attitude;
     ros::Publisher m_pub_command;
