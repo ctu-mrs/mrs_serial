@@ -122,7 +122,20 @@ namespace gimbal
 
     //}
 
-    // https://mavlink.io/en/messages/common.html
+    struct awaiting_ack_t
+    {
+      mavlink::common::msg::COMMAND_LONG msg;
+      ros::Time last_try;
+      int tries = 0;
+
+      struct hash
+      {
+        size_t operator()(const awaiting_ack_t& el)
+        {
+          return std::hash<uint16_t>()(el.msg.command);
+        }
+      };
+    };
 
     enum class OS_Cmd_t
     {
@@ -240,6 +253,13 @@ namespace gimbal
       }
     }
 
+    enum class stream_command_t : uint8_t
+    {
+      set_stream_mode = 0,
+      set_pip_mode = 1,
+      set_sbs_mode = 2,
+    };
+
     enum class stream_mode_t : uint8_t
     {
       disabled = 0,
@@ -307,7 +327,10 @@ namespace gimbal
       pl.loadParam("base_frame_id", m_base_frame_id);
       pl.loadParam("child_frame_id", m_child_frame_id);
 
-      pl.loadParam("mavlink/heartbeat_period", m_heartbeat_period, ros::Duration(1.0));
+      const auto heartbeat_period = pl.loadParam2<ros::Duration>("mavlink/heartbeat_period");
+      const auto command_period = pl.loadParam2<ros::Duration>("mavlink/command_period");
+      pl.loadParam("mavlink/resend/duration", m_resend_duration);
+      pl.loadParam("mavlink/resend/max_tries", m_resend_max_tries);
       pl.loadParam("mavlink/driver/system_id", m_driver_system_id);
       pl.loadParam("mavlink/driver/component_id", m_driver_component_id);
       pl.loadParam("mavlink/gimbal/system_id", m_gimbal_system_id);
@@ -345,7 +368,8 @@ namespace gimbal
       const bool connected = connect(m_driver_system_id, m_driver_component_id, bind_host, bind_port, remote_host, remote_port);
       if (connected)
       {
-        m_tim_sending = m_nh.createTimer(m_heartbeat_period, &Gimbal::sending_loop, this);
+        m_tim_heartbeat = m_nh.createTimer(heartbeat_period, &Gimbal::heartbeat_loop, this);
+        m_tim_command = m_nh.createTimer(command_period, &Gimbal::command_loop, this);
 
         m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
         m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
@@ -375,6 +399,7 @@ namespace gimbal
 
       try
       {
+        std::scoped_lock lck(m_mavconn_mtx);
         const mavconn::MAVConnInterface::ReceivedCb cbk = std::bind(&Gimbal::msg_callback, this, std::placeholders::_1, std::placeholders::_2);
         m_mavconn_ptr = std::make_shared<mavconn::MAVConnUDP>(
           driver_system_id, driver_component_id,
@@ -397,12 +422,48 @@ namespace gimbal
 
     //}
 
-    /* sending_loop() //{ */
-    void sending_loop([[maybe_unused]] const ros::TimerEvent& evt)
+    /* heartbeat_loop() //{ */
+    void heartbeat_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
       send_heartbeat();
+    }
+    //}
+
+    /* command_loop() //{ */
+    void command_loop([[maybe_unused]] const ros::TimerEvent& evt)
+    {
       const auto [cmd_pitch, cmd_roll, cmd_yaw] = mrs_lib::get_mutexed(m_cmd_mtx, m_cmd_pitch, m_cmd_roll, m_cmd_yaw);
       command_mount(cmd_pitch, cmd_roll, cmd_yaw);
+    }
+    //}
+
+    /* resend_loop() //{ */
+    void resend_loop([[maybe_unused]] const ros::TimerEvent& evt)
+    {
+      std::scoped_lock lck(m_mavconn_mtx);
+      const auto now = ros::Time::now();
+      for (auto& el : m_mavconn_awaiting_ack)
+      {
+        if (now - el.last_try > m_resend_duration)
+        {
+          m_mavconn_ptr->send_message(el.msg);
+          el.last_try = now;
+          el.tries++;
+        }
+      }
+
+      for (const auto& el : m_mavconn_awaiting_ack)
+      {
+        if (el.tries >= m_resend_max_tries)
+          ROS_ERROR_STREAM("[Gimbal]: Giving up on command " << el.msg.command << " after " << el.tries << " attempts (not received ACK). Sorry.");
+      }
+      m_mavconn_awaiting_ack.erase(
+          std::remove_if(
+            std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
+            [this](const auto& el)
+            {
+              return el.tries >= m_resend_max_tries;
+            }), std::end(m_mavconn_awaiting_ack));
     }
     //}
 
@@ -424,6 +485,7 @@ namespace gimbal
       msg.system_status = static_cast<uint8_t>(system_state);
       // send the heartbeat message
       ROS_INFO_STREAM_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending heartbeat.");
+      std::scoped_lock lck(m_mavconn_mtx);
       m_mavconn_ptr->send_message(msg);
     }
     //}
@@ -443,6 +505,7 @@ namespace gimbal
 
       // send the heartbeat message
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending attitude RPY: [%.0f, %.0f, %.0f]deg, RPY vels: [%.0f, %.0f, %.0f]deg/s.", rad2deg(roll), rad2deg(pitch), rad2deg(yaw), rad2deg(rollspeed), rad2deg(pitchspeed), rad2deg(yawspeed));
+      std::scoped_lock lck(m_mavconn_mtx);
       m_mavconn_ptr->send_message(msg);
     }
     //}
@@ -462,6 +525,7 @@ namespace gimbal
       msg.vz = 0;
       msg.hdg = 0;
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending global position int (all zeros)");
+      std::scoped_lock lck(m_mavconn_mtx);
       m_mavconn_ptr->send_message(msg);
     }
     //}
@@ -560,14 +624,12 @@ namespace gimbal
       msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
       msg.confirmation = 0;
       msg.param1 = static_cast<float>(OS_Cmd_t::set_system_mode);
-      msg.param2 = static_cast<float>(camera_mode_t::local_position);
+      msg.param2 = static_cast<float>(camera_mode_t::global_position);
       msg.param3 = static_cast<float>(pitch_deg);
       msg.param4 = static_cast<float>(roll_deg);
       msg.param5 = static_cast<float>(0);
       msg.param6 = static_cast<float>(0);
       msg.param7 = static_cast<float>(0);
-      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg).", pitch_deg, roll_deg);
-      m_mavconn_ptr->send_message(msg);
 
       const quat_t q = pry2quat(pitch, 0.0, roll, false);
       nav_msgs::OdometryPtr ros_msg = boost::make_shared<nav_msgs::Odometry>();
@@ -579,6 +641,9 @@ namespace gimbal
       ros_msg->pose.pose.orientation.z = q.z();
       ros_msg->pose.pose.orientation.w = q.w();
       m_pub_command.publish(ros_msg);
+
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Sending mount control command (pitch: %.0fdeg, roll: %.0fdeg).", pitch_deg, roll_deg);
+      send_with_ack(std::move(msg));
     }
     //}
 
@@ -591,14 +656,47 @@ namespace gimbal
       msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
       msg.confirmation = 0;
       msg.param1 = static_cast<float>(OS_Cmd_t::stream_control);
-      msg.param2 = static_cast<float>(0);
+      msg.param2 = static_cast<float>(stream_command_t::set_stream_mode);
       msg.param3 = static_cast<float>(stream_mode);
       msg.param4 = static_cast<float>(0);
       msg.param5 = static_cast<float>(0);
       msg.param6 = static_cast<float>(0);
       msg.param7 = static_cast<float>(0);
+
       ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Setting stream mode to %s.", to_str(stream_mode).c_str());
+      send_with_ack(std::move(msg));
+    }
+    //}
+
+    /* check_awaiting_ack() method //{ */
+    bool check_awaiting_ack(const mavlink::common::msg::COMMAND_LONG& msg)
+    {
+      std::scoped_lock lck(m_mavconn_mtx);
+      const auto found_it = std::find_if(
+          std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
+          [&msg](const auto& el)
+          {
+            return el.msg.command == msg.command;
+          }
+        );
+      if (found_it != std::end(m_mavconn_awaiting_ack))
+      {
+        ROS_ERROR_STREAM("[Gimbal]: Command with ID " << msg.command << " already in the queue waiting for ACK from the gimbal, ignoring new message.");
+        return true;
+      }
+      else
+        return false;
+    }
+    //}
+
+    /* send_with_ack() method //{ */
+    void send_with_ack(const mavlink::common::msg::COMMAND_LONG& msg)
+    {
+      std::scoped_lock lck(m_mavconn_mtx);
+      if (check_awaiting_ack(msg))
+        return;
       m_mavconn_ptr->send_message(msg);
+      m_mavconn_awaiting_ack.push_back({std::move(msg), ros::Time::now()});
     }
     //}
 
@@ -650,6 +748,13 @@ namespace gimbal
           mavlink::common::msg::COMMAND_ACK decoded;
           decoded.deserialize(msg_map);
           ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal ack of command #%u: %u.", decoded.command, decoded.result);
+          m_mavconn_awaiting_ack.erase(std::remove_if(
+              std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
+              [&decoded](const auto& el)
+              {
+                return el.msg.command == decoded.command;
+              }
+            ), std::end(m_mavconn_awaiting_ack));
         }
         break;
 
@@ -749,7 +854,8 @@ namespace gimbal
     // |                    ROS-related variables                   |
     // --------------------------------------------------------------
     ros::NodeHandle m_nh;
-    ros::Timer m_tim_sending;
+    ros::Timer m_tim_heartbeat;
+    ros::Timer m_tim_command;
     ros::Timer m_tim_receiving;
 
     ros::Subscriber m_sub_attitude;
@@ -770,7 +876,8 @@ namespace gimbal
     std::string m_uav_name;
     std::string m_portname;
     int m_baudrate;
-    ros::Duration m_heartbeat_period;
+    ros::Duration m_resend_duration;
+    int m_resend_max_tries;
 
     int m_driver_system_id;
     int m_driver_component_id;
@@ -788,8 +895,9 @@ namespace gimbal
     // |                   Other member variables                   |
     // --------------------------------------------------------------
     const ros::Time m_start_time = ros::Time::now();
-    ros::Time m_last_sent_time = ros::Time::now();
     bool m_is_connected = false;
+    std::recursive_mutex m_mavconn_mtx;
+    std::vector<awaiting_ack_t> m_mavconn_awaiting_ack;
     mavconn::MAVConnUDP::Ptr m_mavconn_ptr = nullptr;
 
     std::mutex m_cmd_mtx;

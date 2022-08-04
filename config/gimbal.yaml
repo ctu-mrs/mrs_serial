@@ -1,6 +1,13 @@
 mavlink:
   # how often should the driver send a heartbeat to the gimbal
-  heartbeat_period: 0.05 # seconds
+  heartbeat_period: 1.0 # seconds
+  # how often should the driver send a command to the gimbal (recommended is 20Hz)
+  command_period: 0.05 # seconds
+
+  resend:
+    # after no ACK is received for this duration, try to resend
+    duration: 0.1
+    max_tries: 10
 
   # this is the default system and component ID for an autopilot
   driver:
