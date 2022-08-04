@@ -149,6 +149,21 @@ namespace gimbal
       stream_control = 57,
     };
 
+    std::string to_str(const OS_Cmd_t os_cmd)
+    {
+      switch (os_cmd)
+      {
+        case OS_Cmd_t::set_system_mode: return "set_system_mode";
+        case OS_Cmd_t::take_snapshot: return "take_snapshot";
+        case OS_Cmd_t::set_rec_state: return "set_rec_state";
+        case OS_Cmd_t::set_sensor: return "set_sensor";
+        case OS_Cmd_t::set_fov: return "set_fov";
+        case OS_Cmd_t::set_sharpness: return "set_sharpness";
+        case OS_Cmd_t::stream_control: return "stream_control";
+        default: return "unknown";
+      }
+    }
+
     enum class camera_mode_t
     {
       stow = 0,
@@ -209,6 +224,22 @@ namespace gimbal
         case report_type_t::parameter: return "parameter";
         case report_type_t::oglr: return "oglr";
         case report_type_t::video_motion_detection: return "video_motion_detection";
+        default: return "unknown";
+      }
+    }
+
+    enum class active_sensor_t : uint8_t
+    {
+      day = 0,
+      ir = 1,
+    };
+
+    std::string to_str(const active_sensor_t active_sensor)
+    {
+      switch (active_sensor)
+      {
+        case active_sensor_t::day: return "day";
+        case active_sensor_t::ir: return "ir";
         default: return "unknown";
       }
     }
@@ -378,6 +409,7 @@ namespace gimbal
         m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
         m_sub_stream_mode = m_nh.subscribe("stream_mode", 10, &Gimbal::stream_mode_cbk, this);
+        m_sub_sensor = m_nh.subscribe("sensor", 10, &Gimbal::sensor_cbk, this);
 
         m_transformer = mrs_lib::Transformer("Gimbal");
         m_transformer.setLookupTimeout(ros::Duration(0.1));
@@ -432,8 +464,7 @@ namespace gimbal
     /* command_loop() //{ */
     void command_loop([[maybe_unused]] const ros::TimerEvent& evt)
     {
-      const auto [cmd_pitch, cmd_roll, cmd_yaw] = mrs_lib::get_mutexed(m_cmd_mtx, m_cmd_pitch, m_cmd_roll, m_cmd_yaw);
-      command_mount(cmd_pitch, cmd_roll, cmd_yaw);
+      command_mount(camera_mode_t::grr);
     }
     //}
 
@@ -575,7 +606,7 @@ namespace gimbal
       const double roll = PRY_angles.y();
       const double yaw = PRY_angles.z();
 
-      mrs_lib::set_mutexed(m_cmd_mtx, std::make_tuple(pitch, roll, yaw), std::forward_as_tuple(m_cmd_pitch, m_cmd_roll, m_cmd_yaw));
+      command_mount(camera_mode_t::global_position, pitch, roll);
     }
     //}
 
@@ -585,7 +616,7 @@ namespace gimbal
       const double pitch = static_cast<double>(cmd_pry->pitch);
       const double roll = static_cast<double>(cmd_pry->roll);
       const double yaw = static_cast<double>(cmd_pry->yaw);
-      mrs_lib::set_mutexed(m_cmd_mtx, std::make_tuple(pitch, roll, yaw), std::forward_as_tuple(m_cmd_pitch, m_cmd_roll, m_cmd_yaw));
+      command_mount(camera_mode_t::global_position, pitch, roll);
     }
     //}
 
@@ -594,7 +625,7 @@ namespace gimbal
     {
       stream_mode_t stream_mode;
       bool found = false;
-      for (int it = 0; it < int(stream_mode_t::side_by_side); it++)
+      for (int it = 0; it < int(stream_mode_t::side_by_side)+1; it++)
       {
         if (to_str(stream_mode_t(it)) == stream_mode_msg->data)
         {
@@ -610,13 +641,33 @@ namespace gimbal
     }
     //}
 
+    /* sensor_cbk() method //{ */
+    void sensor_cbk(const std_msgs::String::ConstPtr msg)
+    {
+      active_sensor_t sensor;
+      bool found = false;
+      for (int it = 0; it < int(active_sensor_t::ir)+1; it++)
+      {
+        if (to_str(active_sensor_t(it)) == msg->data)
+        {
+          sensor = active_sensor_t(it);
+          found = true;
+          break;
+        }
+      }
+      if (found)
+        set_sensor(sensor);
+      else
+        ROS_ERROR("[Gimbal]: Unknown sensor: %s", msg->data.c_str());
+    }
+    //}
+
     /* command_mount() method //{ */
-    void command_mount(const double pitch, const double roll, const double yaw)
+    void command_mount(const camera_mode_t camera_mode, const double pitch = 0, const double roll = 0)
     {
       // recalculate to degrees
       const float pitch_deg = static_cast<float>(pitch/M_PI*180.0);
       const float roll_deg = static_cast<float>(roll/M_PI*180.0);
-      const float yaw_deg = static_cast<float>(yaw/M_PI*180.0);
 
       mavlink::common::msg::COMMAND_LONG msg;
       msg.target_system = m_gimbal_system_id;
@@ -624,7 +675,7 @@ namespace gimbal
       msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
       msg.confirmation = 0;
       msg.param1 = static_cast<float>(OS_Cmd_t::set_system_mode);
-      msg.param2 = static_cast<float>(camera_mode_t::global_position);
+      msg.param2 = static_cast<float>(camera_mode);
       msg.param3 = static_cast<float>(pitch_deg);
       msg.param4 = static_cast<float>(roll_deg);
       msg.param5 = static_cast<float>(0);
@@ -663,7 +714,28 @@ namespace gimbal
       msg.param6 = static_cast<float>(0);
       msg.param7 = static_cast<float>(0);
 
-      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Setting stream mode to %s.", to_str(stream_mode).c_str());
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Setting stream mode to %s (%f).", to_str(stream_mode).c_str(), msg.param3);
+      send_with_ack(std::move(msg));
+    }
+    //}
+
+    /* set_sensor() method //{ */
+    void set_sensor(const active_sensor_t to_sensor)
+    {
+      mavlink::common::msg::COMMAND_LONG msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
+      msg.confirmation = 0;
+      msg.param1 = static_cast<float>(OS_Cmd_t::set_sensor);
+      msg.param2 = static_cast<float>(to_sensor);
+      msg.param3 = static_cast<float>(0);
+      msg.param4 = static_cast<float>(0);
+      msg.param5 = static_cast<float>(0);
+      msg.param6 = static_cast<float>(0);
+      msg.param7 = static_cast<float>(0);
+
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Setting sensor to %s (%f).", to_str(to_sensor).c_str(), msg.param2);
       send_with_ack(std::move(msg));
     }
     //}
@@ -672,13 +744,7 @@ namespace gimbal
     bool check_awaiting_ack(const mavlink::common::msg::COMMAND_LONG& msg)
     {
       std::scoped_lock lck(m_mavconn_mtx);
-      const auto found_it = std::find_if(
-          std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
-          [&msg](const auto& el)
-          {
-            return el.msg.command == msg.command;
-          }
-        );
+      const auto found_it = find_awaiting_ack(msg.command);
       if (found_it != std::end(m_mavconn_awaiting_ack))
       {
         ROS_ERROR_STREAM("[Gimbal]: Command with ID " << msg.command << " already in the queue waiting for ACK from the gimbal, ignoring new message.");
@@ -686,6 +752,20 @@ namespace gimbal
       }
       else
         return false;
+    }
+    //}
+
+    /* find_awaiting_ack() method //{ */
+    std::vector<awaiting_ack_t>::iterator find_awaiting_ack(const uint16_t command)
+    {
+      std::scoped_lock lck(m_mavconn_mtx);
+      return std::find_if(
+          std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
+          [&command](const auto& el)
+          {
+            return el.msg.command == command;
+          }
+        );
     }
     //}
 
@@ -747,14 +827,7 @@ namespace gimbal
         {
           mavlink::common::msg::COMMAND_ACK decoded;
           decoded.deserialize(msg_map);
-          ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal ack of command #%u: %u.", decoded.command, decoded.result);
-          m_mavconn_awaiting_ack.erase(std::remove_if(
-              std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
-              [&decoded](const auto& el)
-              {
-                return el.msg.command == decoded.command;
-              }
-            ), std::end(m_mavconn_awaiting_ack));
+          process_msg(decoded);
         }
         break;
 
@@ -771,6 +844,26 @@ namespace gimbal
       }
     }
     //}
+
+    void process_msg(const mavlink::common::msg::COMMAND_ACK& decoded)
+    {
+      const mavlink::common::MAV_RESULT result = static_cast<mavlink::common::MAV_RESULT>(decoded.result);
+      if (result == mavlink::common::MAV_RESULT::ACCEPTED)
+        ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal ack of command #%u.", decoded.command);
+      else
+        ROS_WARN_THROTTLE(1.0, "[Gimbal]: |Driver < Gimbal| Receiving gimbal ack of command #%u: %u.", decoded.command, decoded.result);
+
+      if (result != mavlink::common::MAV_RESULT::TEMPORARILY_REJECTED)
+      {
+        m_mavconn_awaiting_ack.erase(std::remove_if(
+            std::begin(m_mavconn_awaiting_ack), std::end(m_mavconn_awaiting_ack),
+            [&decoded](const auto& el)
+            {
+              return el.msg.command == decoded.command;
+            }
+          ), std::end(m_mavconn_awaiting_ack));
+      }
+    }
 
     // fujky
     template<typename T>
@@ -789,6 +882,9 @@ namespace gimbal
       const auto roll_deg = parse<float>(payload, i);
       const auto pitch_deg = parse<float>(payload, i);
       const auto fov = parse<float>(payload, i);
+
+      i = 22-i0;
+      const auto active_sensor = static_cast<active_sensor_t>(parse<uint8_t>(payload, i));
 
       i = 24-i0;
       const auto system_state = static_cast<system_state_t>(parse<uint8_t>(payload, i));
@@ -817,7 +913,7 @@ namespace gimbal
       ros_msg->twist.twist.angular.y = pitch_rate;
       m_pub_attitude.publish(ros_msg);
 
-      ROS_INFO_THROTTLE(1.0, "[Gimbal]: System state: %s\n\troll: %.2fdeg (%.2fdeg/s)\n\tpitch: %.2fdeg (%.2fdeg/s)\n\tfov: %.2fdeg\n\tcamera temp: %.2fdeg C", to_str(system_state).c_str(), roll_deg, roll_rate_degs, pitch_deg, pitch_rate_degs, fov, camera_temp);
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: System state: %s (active sensor: %s)\n\troll: %.2fdeg (%.2fdeg/s)\n\tpitch: %.2fdeg (%.2fdeg/s)\n\tfov: %.2fdeg\n\tcamera temp: %.2fdeg C", to_str(system_state).c_str(), to_str(active_sensor).c_str(), roll_deg, roll_rate_degs, pitch_deg, pitch_rate_degs, fov, camera_temp);
     }
 
     void process_extension_msg(const mavlink::mavlink_message_t* msg)
@@ -862,6 +958,7 @@ namespace gimbal
     ros::Subscriber m_sub_command;
     ros::Subscriber m_sub_pry;
     ros::Subscriber m_sub_stream_mode;
+    ros::Subscriber m_sub_sensor;
 
     ros::Publisher m_pub_attitude;
     ros::Publisher m_pub_command;
@@ -899,11 +996,6 @@ namespace gimbal
     std::recursive_mutex m_mavconn_mtx;
     std::vector<awaiting_ack_t> m_mavconn_awaiting_ack;
     mavconn::MAVConnUDP::Ptr m_mavconn_ptr = nullptr;
-
-    std::mutex m_cmd_mtx;
-    double m_cmd_pitch = 0.0;
-    double m_cmd_roll = 0.0;
-    double m_cmd_yaw = 0.0;
 
     int m_hbs_since_last_request = 2;
     int m_hbs_request_period = 5;

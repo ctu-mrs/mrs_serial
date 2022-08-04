@@ -2,7 +2,7 @@ mavlink:
   # how often should the driver send a heartbeat to the gimbal
   heartbeat_period: 1.0 # seconds
   # how often should the driver send a command to the gimbal (recommended is 20Hz)
-  command_period: 0.05 # seconds
+  command_period: 1000000.0 # seconds
 
   resend:
     # after no ACK is received for this duration, try to resend
