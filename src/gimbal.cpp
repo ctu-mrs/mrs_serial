@@ -146,6 +146,7 @@ namespace gimbal
       set_fov = 4,
       set_sharpness = 5,
       // others
+      do_nuc = 11,
       stream_control = 57,
     };
 
@@ -410,6 +411,7 @@ namespace gimbal
         m_sub_pry = m_nh.subscribe("cmd_pry", 10, &Gimbal::cmd_pry_cbk, this);
         m_sub_stream_mode = m_nh.subscribe("stream_mode", 10, &Gimbal::stream_mode_cbk, this);
         m_sub_sensor = m_nh.subscribe("sensor", 10, &Gimbal::sensor_cbk, this);
+        m_sub_nuc = m_nh.subscribe("do_nuc", 10, &Gimbal::do_nuc, this);
 
         m_transformer = mrs_lib::Transformer("Gimbal");
         m_transformer.setLookupTimeout(ros::Duration(0.1));
@@ -740,6 +742,27 @@ namespace gimbal
     }
     //}
 
+    /* do_nuc() method //{ */
+    void do_nuc([[maybe_unused]] const std_msgs::Empty::ConstPtr rosmsg)
+    {
+      mavlink::common::msg::COMMAND_LONG msg;
+      msg.target_system = m_gimbal_system_id;
+      msg.target_component = m_gimbal_component_id;
+      msg.command = static_cast<uint16_t>(mavlink::common::MAV_CMD::DO_DIGICAM_CONTROL);
+      msg.confirmation = 0;
+      msg.param1 = static_cast<float>(OS_Cmd_t::do_nuc);
+      msg.param2 = static_cast<float>(0);
+      msg.param3 = static_cast<float>(0);
+      msg.param4 = static_cast<float>(0);
+      msg.param5 = static_cast<float>(0);
+      msg.param6 = static_cast<float>(0);
+      msg.param7 = static_cast<float>(0);
+
+      ROS_INFO_THROTTLE(1.0, "[Gimbal]: |Driver > Gimbal| Starting IR non-uniformity correction (NUC).");
+      send_with_ack(std::move(msg));
+    }
+    //}
+
     /* check_awaiting_ack() method //{ */
     bool check_awaiting_ack(const mavlink::common::msg::COMMAND_LONG& msg)
     {
@@ -959,6 +982,7 @@ namespace gimbal
     ros::Subscriber m_sub_pry;
     ros::Subscriber m_sub_stream_mode;
     ros::Subscriber m_sub_sensor;
+    ros::Subscriber m_sub_nuc;
 
     ros::Publisher m_pub_attitude;
     ros::Publisher m_pub_command;
