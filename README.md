@@ -1,7 +1,7 @@
 ## MRS serial protocol
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) |
-|--------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) |
+|--------------|------------------------------------------------------------------------------------------------------------------------------------|
 
 Messages sent/received throuh the serial line consist of 8 bit values.
 The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
