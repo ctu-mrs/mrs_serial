@@ -35,6 +35,13 @@ include_directories(
   ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
+# Eagle
+
+add_library(Eagle
+  src/eagle.cpp
+  src/serial_port.cpp
+  )
+
 # VioImu
 
 add_library(VioImu
