@@ -2,15 +2,14 @@
 <package format="2">
 
   <name>mrs_serial</name>
-  <version>0.0.1</version>
+  <version>1.0.0</version>
   <description>driver for reading messages from serial line</description>
 
+  <author email="hertdani@fel.cvut.cz">Daniel Hert</author>
   <maintainer email="hertdani@fel.cvut.cz">Daniel Hert</maintainer>
   <maintainer email="Tomas.baca@fel.cvut.cz">Tomas Baca</maintainer>
 
   <license>BSD 3-Clause</license>
-
-  <author email="hertdani@fel.cvut.cz">Daniel Hert</author>
 
   <buildtool_depend>catkin</buildtool_depend>
 
@@ -24,10 +23,7 @@
   <depend>dynamic_reconfigure</depend>
 
   <export>
-
-    <!-- The plugins.xml file defines nodelet as a plugin -->
-    <nodelet plugin="${prefix}/plugins.xml" />
-
+    <nodelet plugin="${prefix}/nodelets.xml" />
   </export>
 
 </package>
