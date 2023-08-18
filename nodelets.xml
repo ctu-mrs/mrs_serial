@@ -1,58 +1,58 @@
-<library path="lib/libBacaProtocol">
+<library path="lib/libMrsSerial_BacaProtocol">
   <class name="baca_protocol/BacaProtocol" type="baca_protocol::BacaProtocol" base_class_type="nodelet::Nodelet">
     <description>BacaProtocol nodelet</description>
   </class>
 </library>
 
-<library path="lib/libNmeaParser">
+<library path="lib/libMrsSerial_NmeaParser">
   <class name="nmea_parser/NmeaParser" type="nmea_parser::NmeaParser" base_class_type="nodelet::Nodelet">
     <description>NmeaParser nodelet</description>
   </class>
 </library>
 
-<library path="lib/libEagle">
+<library path="lib/libMrsSerial_Eagle">
   <class name="eagle/Eagle" type="eagle::Eagle" base_class_type="nodelet::Nodelet">
     <description>Eagle nodelet</description>
   </class>
 </library>
 
-<library path="lib/libVioImu">
+<library path="lib/libMrsSerial_VioImu">
   <class name="vio_imu/VioImu" type="vio_imu::VioImu" base_class_type="nodelet::Nodelet">
     <description>VioImu nodelet</description>
   </class>
 </library>
 
-<library path="lib/libServo">
+<library path="lib/libMrsSerial_Servo">
   <class name="servo/Servo" type="servo::Servo" base_class_type="nodelet::Nodelet">
     <description>Servo nodelet</description>
   </class>
 </library>
 
-<library path="lib/libLed">
+<library path="lib/libMrsSerial_Led">
   <class name="led/Led" type="led::Led" base_class_type="nodelet::Nodelet">
     <description>Led nodelet</description>
   </class>
 </library>
 
-<library path="lib/libEstop">
+<library path="lib/libMrsSerial_Estop">
   <class name="estop/Estop" type="estop::Estop" base_class_type="nodelet::Nodelet">
     <description>Estop nodelet</description>
   </class>
 </library>
 
-<library path="lib/libUltrasound">
+<library path="lib/libMrsSerial_Ultrasound">
   <class name="ultrasound/Ultrasound" type="ultrasound::Ultrasound" base_class_type="nodelet::Nodelet">
     <description>Ultrasound nodelet</description>
   </class>
 </library>
 
-<library path="lib/libTarotGimbal">
+<library path="lib/libMrsSerial_TarotGimbal">
   <class name="tarot_gimbal/TarotGimbal" type="tarot_gimbal::TarotGimbal" base_class_type="nodelet::Nodelet">
     <description>TarotGimbal nodelet</description>
   </class>
 </library>
 
-<library path="lib/libGimbal">
+<library path="lib/libMrsSerial_Gimbal">
   <class name="gimbal/Gimbal" type="gimbal::Gimbal" base_class_type="nodelet::Nodelet">
     <description>A basic driver for a gimbal over the SBGC-API protocol</description>
   </class>
