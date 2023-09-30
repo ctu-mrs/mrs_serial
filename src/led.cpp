@@ -1,5 +1,3 @@
-#include "mrs_msgs/SetIntRequest.h"
-#include "mrs_msgs/SetIntResponse.h"
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
@@ -7,13 +5,14 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/SetBool.h>
 #include <std_srvs/SetBool.h>
-#include <mrs_msgs/SetInt.h>
 #include <std_msgs/Empty.h>
 #include <mutex>
 
+#include <mrs_msgs/SetInt.h>
+
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
 
 #include <serial_port.h>
 
@@ -59,7 +58,7 @@ private:
   bool callbackLed(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackOuster(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
 
   uint8_t connectToSensor(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
@@ -119,8 +118,8 @@ void Led::onInit() {
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
-  baca_protocol_publisher_       = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
-  /* baca_protocol_debug_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out_debug", 1); */
+  baca_protocol_publisher_       = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
+  /* baca_protocol_debug_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out_debug", 1); */
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &Led::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -206,7 +205,7 @@ void Led::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendRawMessage() //{ */
 
-void Led::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void Led::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -265,7 +264,7 @@ bool Led::callbackAll(std_srvs::SetBool::Request &req, std_srvs::SetBool::Respon
 
   serial_port_.sendCharArray(out_buffer, payload_size + 3);
 
-  /* mrs_msgs::BacaProtocol msg; */
+  /* mrs_modules_msgs::BacaProtocol msg; */
   /* msg.stamp = ros::Time::now(); */
   /* for (uint8_t i = 0; i < payload_size + 3; i++) { */
   /*   msg.payload.push_back(out_buffer[i]); */
@@ -490,7 +489,7 @@ void Led::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t ch
   if (checksum_correct) {
     received_msg_ok++;
   }
-  mrs_msgs::BacaProtocol msg;
+  mrs_modules_msgs::BacaProtocol msg;
   msg.stamp = ros::Time::now();
   for (uint8_t i = 0; i < payload_size; i++) {
     msg.payload.push_back(input_buffer[i]);

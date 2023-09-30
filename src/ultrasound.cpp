@@ -1,5 +1,3 @@
-#include "mrs_msgs/SetIntRequest.h"
-#include "mrs_msgs/SetIntResponse.h"
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
@@ -7,13 +5,15 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/SetBool.h>
 #include <std_srvs/SetBool.h>
-#include <mrs_msgs/SetInt.h>
 #include <std_msgs/Empty.h>
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
+
+#include <mrs_msgs/SetInt.h>
+
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
 
 #include <serial_port.h>
 
@@ -58,7 +58,7 @@ private:
   bool callbackUltrasound(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackOuster(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
 
   uint8_t connectToSensor(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
@@ -119,7 +119,7 @@ void Ultrasound::onInit() {
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
   range_publisher          = nh_.advertise<sensor_msgs::Range>("range", 1);
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &Ultrasound::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
@@ -202,7 +202,7 @@ void Ultrasound::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendRawMessage() //{ */
 
-void Ultrasound::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void Ultrasound::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -323,7 +323,7 @@ void Ultrasound::processMessage(uint8_t payload_size, uint8_t *input_buffer, uin
     if (checksum_correct) {
       received_msg_ok++;
     }
-    mrs_msgs::BacaProtocol msg;
+    mrs_modules_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);

@@ -10,8 +10,8 @@
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
 #include <mrs_msgs/SetInt.h>
 
 #include <serial_port.h>
@@ -67,8 +67,8 @@ private:
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
   bool callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
@@ -160,7 +160,7 @@ void Eagle::onInit() {
   garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
   garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
 
-  eagle_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("eagle_out", 1);
+  eagle_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("eagle_out", 1);
 
   eagle_subscriber = nh_.subscribe("eagle_in", 10, &Eagle::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -265,7 +265,7 @@ void Eagle::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendMessage() //{ */
 
-void Eagle::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
+void Eagle::callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -298,7 +298,7 @@ void Eagle::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
 
 /* callbackSendRawMessage() //{ */
 
-void Eagle::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void Eagle::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -606,7 +606,7 @@ void Eagle::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t 
     if (checksum_correct) {
       received_msg_ok++;
     }
-    mrs_msgs::BacaProtocol msg;
+    mrs_modules_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);

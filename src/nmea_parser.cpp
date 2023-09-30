@@ -3,15 +3,15 @@
 #include <ros/ros.h>
 #include <mutex>
 
-#include <mrs_msgs/Gpgga.h>
-#include <mrs_msgs/Gpgsa.h>
-#include <mrs_msgs/Gpgst.h>
-#include <mrs_msgs/Gpvtg.h>
+#include <mrs_modules_msgs/Gpgga.h>
+#include <mrs_modules_msgs/Gpgsa.h>
+#include <mrs_modules_msgs/Gpgst.h>
+#include <mrs_modules_msgs/Gpvtg.h>
 
 #include <mrs_msgs/StringStamped.h>
 
-#include <mrs_msgs/Bestpos.h>
-#include <mrs_msgs/GpsStatus.h>
+#include <mrs_modules_msgs/Bestpos.h>
+#include <mrs_modules_msgs/GpsStatus.h>
 
 #include <std_msgs/String.h>
 
@@ -86,7 +86,7 @@ private:
   ros::Timer serial_timer_;
   ros::Timer maintainer_timer_;
 
-  mrs_msgs::Bestpos bestpos_msg_;
+  mrs_modules_msgs::Bestpos bestpos_msg_;
 
   serial_port::SerialPort serial_port_;
 
@@ -139,11 +139,11 @@ void NmeaParser::onInit() {
   nh_.param("serial_rate", serial_rate_, 500);
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
-  gpgga_pub_               = nh_.advertise<mrs_msgs::Gpgga>("gpgga_out", 1);
-  gpgsa_pub_               = nh_.advertise<mrs_msgs::Gpgsa>("gpgsa_out", 1);
-  gpgst_pub_               = nh_.advertise<mrs_msgs::Gpgst>("gpgst_out", 1);
-  gpvtg_pub_               = nh_.advertise<mrs_msgs::Gpvtg>("gpvtg_out", 1);
-  bestpos_pub_             = nh_.advertise<mrs_msgs::Bestpos>("bestpos_out", 1);
+  gpgga_pub_               = nh_.advertise<mrs_modules_msgs::Gpgga>("gpgga_out", 1);
+  gpgsa_pub_               = nh_.advertise<mrs_modules_msgs::Gpgsa>("gpgsa_out", 1);
+  gpgst_pub_               = nh_.advertise<mrs_modules_msgs::Gpgst>("gpgst_out", 1);
+  gpvtg_pub_               = nh_.advertise<mrs_modules_msgs::Gpvtg>("gpvtg_out", 1);
+  bestpos_pub_             = nh_.advertise<mrs_modules_msgs::Bestpos>("bestpos_out", 1);
   string_pub_              = nh_.advertise<std_msgs::String>("status_out", 1);
   string_raw_pub_          = nh_.advertise<mrs_msgs::StringStamped>("raw_out", 1);
 
@@ -304,8 +304,8 @@ void NmeaParser::processMessage() {
 
 void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
-  mrs_msgs::Gpgga     gpgga_msg;
-  mrs_msgs::GpsStatus gps_status;
+  mrs_modules_msgs::Gpgga     gpgga_msg;
+  mrs_modules_msgs::GpsStatus gps_status;
 
   /* for (size_t i = 0; i < results.size(); i++) { */
   /*   ROS_INFO_STREAM("[NmeaParser]:  " << i << "  " << results[i]); */
@@ -440,7 +440,7 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
 void NmeaParser::processGPGSA(std::vector<std::string>& results) {
 
-  mrs_msgs::Gpgsa gpgsa_msg;
+  mrs_modules_msgs::Gpgsa gpgsa_msg;
   gpgsa_msg.header.stamp = ros::Time::now();
 
   gpgsa_msg.auto_manual_mode = results[2];
@@ -475,7 +475,7 @@ void NmeaParser::processGPGSA(std::vector<std::string>& results) {
 
 void NmeaParser::processGPGST(std::vector<std::string>& results) {
 
-  mrs_msgs::Gpgst gpgst_msg;
+  mrs_modules_msgs::Gpgst gpgst_msg;
   gpgst_msg.header.stamp = ros::Time::now();
 
   /* for (size_t i = 0; i < results.size(); i++) { */
@@ -510,7 +510,7 @@ void NmeaParser::processGPGST(std::vector<std::string>& results) {
 
 void NmeaParser::processGPVTG(std::vector<std::string>& results) {
 
-  mrs_msgs::Gpvtg gpvtg_msg;
+  mrs_modules_msgs::Gpvtg gpvtg_msg;
   gpvtg_msg.header.stamp = ros::Time::now();
 
   /* for (size_t i = 0; i < results.size(); i++) { */

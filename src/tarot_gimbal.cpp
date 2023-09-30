@@ -1,6 +1,3 @@
-#include "mrs_msgs/SetIntRequest.h"
-#include "mrs_msgs/SetIntResponse.h"
-#include "mrs_msgs/TarotGimbalState.h"
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
@@ -8,13 +5,16 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/SetBool.h>
 #include <std_srvs/SetBool.h>
-#include <mrs_msgs/SetInt.h>
 #include <std_msgs/Empty.h>
 #include <mutex>
 
+#include <mrs_msgs/SetInt.h>
+
+#include <mrs_modules_msgs/TarotGimbalState.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
+
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
 
 #include <serial_port.h>
 
@@ -62,8 +62,8 @@ private:
   bool callbackTarotGimbal(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackOuster(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
-  void callbackSendCommand(const mrs_msgs::TarotGimbalState &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
+  void callbackSendCommand(const mrs_modules_msgs::TarotGimbalState &msg);
 
   uint8_t connectToSensor(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
@@ -123,8 +123,8 @@ void TarotGimbal::onInit() {
   nh_.param("serial_buffer_size", serial_buffer_size_, 1024);
 
   // Publishers
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
-  gimbal_status_publisher  = nh_.advertise<mrs_msgs::TarotGimbalState>("gimbal_state", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
+  gimbal_status_publisher  = nh_.advertise<mrs_modules_msgs::TarotGimbalState>("gimbal_state", 1);
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &TarotGimbal::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -208,7 +208,7 @@ void TarotGimbal::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendRawMessage() //{ */
 
-void TarotGimbal::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void TarotGimbal::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -225,7 +225,7 @@ void TarotGimbal::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg)
 
 /* callbackSendCommand() //{ */
 
-void TarotGimbal::callbackSendCommand(const mrs_msgs::TarotGimbalState &msg) {
+void TarotGimbal::callbackSendCommand(const mrs_modules_msgs::TarotGimbalState &msg) {
 
   if (!is_initialized_) {
     return;
@@ -374,7 +374,7 @@ void TarotGimbal::processMessage(uint8_t payload_size, uint8_t *input_buffer, ui
       gimbal_is_on = true;
     }
 
-    mrs_msgs::TarotGimbalState gimbal_msg;
+    mrs_modules_msgs::TarotGimbalState gimbal_msg;
 
     gimbal_msg.is_on           = gimbal_is_on;
     gimbal_msg.fpv_mode        = gimbal_mode;
@@ -398,7 +398,7 @@ void TarotGimbal::processMessage(uint8_t payload_size, uint8_t *input_buffer, ui
       received_msg_ok++;
     }
 
-    mrs_msgs::BacaProtocol msg;
+    mrs_modules_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);

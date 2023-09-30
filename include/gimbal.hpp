@@ -17,7 +17,8 @@
 #include <mutex>
 #include <string>
 
-#include <mrs_msgs/GimbalPRY.h>
+#include <mrs_modules_msgs/GimbalPRY.h>
+
 #include <dynamic_reconfigure/server.h>
 #include "SBGC_lib/SBGC.h"
 #include "serial_port.h"
@@ -86,7 +87,7 @@ namespace gimbal {
 
         void cmd_orientation_cbk(const geometry_msgs::QuaternionStamped::ConstPtr &cmd_orientation);
 
-        void cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry);
+        void cmd_pry_cbk(const mrs_modules_msgs::GimbalPRY::ConstPtr &cmd_pry);
 
         bool rotate_gimbal_PRY(double pitch, double roll, double yaw);
 

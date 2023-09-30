@@ -8,7 +8,7 @@
 
 #include <mrs_lib/param_loader.h>
 
-#include "mrs_msgs/SetInt.h"
+#include <mrs_msgs/SetInt.h>
 
 #include <string>
 

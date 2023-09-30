@@ -45,7 +45,7 @@ namespace gimbal
         m_pub_attitude = m_nh.advertise<nav_msgs::Odometry>("attitude_out", 10);
         m_pub_speed = m_nh.advertise<geometry_msgs::Vector3>("speed_out", 10);
         m_pub_command = m_nh.advertise<nav_msgs::Odometry>("current_setpoint", 10);
-        m_pub_orientation_pry = m_nh.advertise<mrs_msgs::GimbalPRY>("attitude_out_pry", 10);
+        m_pub_orientation_pry = m_nh.advertise<mrs_modules_msgs::GimbalPRY>("attitude_out_pry", 10);
 
         m_sub_attitude = m_nh.subscribe("attitude_in", 10, &Gimbal::attitude_cbk, this);
         m_sub_command = m_nh.subscribe("cmd_orientation", 10, &Gimbal::cmd_orientation_cbk, this);
@@ -234,7 +234,7 @@ namespace gimbal
     //}
 
     /* cmd_pry_cbk() method //{ */
-    void Gimbal::cmd_pry_cbk(const mrs_msgs::GimbalPRY::ConstPtr &cmd_pry) {
+    void Gimbal::cmd_pry_cbk(const mrs_modules_msgs::GimbalPRY::ConstPtr &cmd_pry) {
         rotate_gimbal_PRY_between_frames(cmd_pry->pitch, cmd_pry->roll, cmd_pry->yaw,
                                          m_base_frame_id, m_stabilization_frame_id);
     }
@@ -276,7 +276,7 @@ namespace gimbal
 
         /* Process the gimbal orientation frame //{ */
         if (m_request_data_flags & cmd_realtime_data_custom_flags_stator_rotor_angle) {
-            auto msg_pry = boost::make_shared<mrs_msgs::GimbalPRY>();
+            auto msg_pry = boost::make_shared<mrs_modules_msgs::GimbalPRY>();
 
             msg_pry->pitch = data.stator_rotor_angle[1];
             msg_pry->roll = data.stator_rotor_angle[0];

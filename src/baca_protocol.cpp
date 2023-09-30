@@ -10,8 +10,8 @@
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
 #include <mrs_msgs/SetInt.h>
 
 #include <serial_port.h>
@@ -62,8 +62,8 @@ private:
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
   bool callbackSendInt([[maybe_unused]] mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
@@ -146,7 +146,7 @@ void BacaProtocol::onInit() {
   garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
   garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
 
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 10, &BacaProtocol::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -251,7 +251,7 @@ void BacaProtocol::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendMessage() //{ */
 
-void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
+void BacaProtocol::callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -284,7 +284,7 @@ void BacaProtocol::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg
 
 /* callbackSendRawMessage() //{ */
 
-void BacaProtocol::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void BacaProtocol::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -484,7 +484,7 @@ void BacaProtocol::processMessage(uint8_t payload_size, uint8_t *input_buffer, u
     if (checksum_correct) {
       received_msg_ok++;
     }
-    mrs_msgs::BacaProtocol msg;
+    mrs_modules_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);

@@ -1,5 +1,3 @@
-#include "mrs_msgs/SetIntRequest.h"
-#include "mrs_msgs/SetIntResponse.h"
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
@@ -7,13 +5,15 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
-#include <mrs_msgs/SetInt.h>
 #include <std_msgs/Empty.h>
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
-#include <mrs_msgs/SerialRaw.h>
+
+#include <mrs_msgs/SetInt.h>
+
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
 
 #include <serial_port.h>
 
@@ -62,11 +62,11 @@ private:
   bool callbackNetgunSafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunArm(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackNetgunFire(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg);
+  void callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg);
 
   bool callbackServo(mrs_msgs::SetIntRequest &req, mrs_msgs::SetIntResponse &res);
 
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
   void callbackMagnet(const std_msgs::EmptyConstPtr &msg);
 
 
@@ -144,7 +144,7 @@ void Servo::onInit() {
   garmin_A_frame_       = uav_name_ + "/garmin" + postfix_A;
   garmin_B_frame_       = uav_name_ + "/garmin" + postfix_B;
 
-  baca_protocol_publisher_ = nh_.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+  baca_protocol_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
 
   baca_protocol_subscriber = nh_.subscribe("baca_protocol_in", 10, &Servo::callbackSendMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -252,7 +252,7 @@ void Servo::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendMessage() //{ */
 
-void Servo::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
+void Servo::callbackSendMessage(const mrs_modules_msgs::BacaProtocolConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -286,7 +286,7 @@ void Servo::callbackSendMessage(const mrs_msgs::BacaProtocolConstPtr &msg) {
 
 /* callbackSendRawMessage() //{ */
 
-void Servo::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void Servo::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -465,7 +465,7 @@ void Servo::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t 
     if (checksum_correct) {
       received_msg_ok++;
     }
-    mrs_msgs::BacaProtocol msg;
+    mrs_modules_msgs::BacaProtocol msg;
     msg.stamp = ros::Time::now();
     for (uint8_t i = 0; i < payload_size; i++) {
       msg.payload.push_back(input_buffer[i]);

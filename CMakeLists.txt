@@ -10,6 +10,7 @@ set(CATKIN_DEPENDENCIES
   nodelet
   sensor_msgs
   mrs_msgs
+  mrs_modules_msgs
   std_msgs
   mrs_lib
   dynamic_reconfigure

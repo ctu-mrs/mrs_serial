@@ -1,5 +1,3 @@
-#include "mrs_msgs/SetIntRequest.h"
-#include "mrs_msgs/SetIntResponse.h"
 #include <ros/package.h>
 #include <stdlib.h>
 #include <ros/ros.h>
@@ -7,14 +5,16 @@
 #include <std_msgs/Char.h>
 #include <std_srvs/SetBool.h>
 #include <std_srvs/Trigger.h>
-#include <mrs_msgs/SetInt.h>
 #include <std_msgs/Empty.h>
 #include <mutex>
 
 #include <string>
-#include <mrs_msgs/BacaProtocol.h>
+
+#include <mrs_modules_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/SerialRaw.h>
+
+#include <mrs_msgs/SetInt.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
-#include <mrs_msgs/SerialRaw.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/service_client_handler.h>
@@ -67,7 +67,7 @@ private:
   void callbackEstopTimer(const ros::TimerEvent &event);
   void callbackMaintainerTimer(const ros::TimerEvent &event);
 
-  void callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg);
+  void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg);
 
   uint8_t connectToSensor(void);
@@ -311,7 +311,7 @@ void Estop::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
 /* callbackSendRawMessage() //{ */
 
-void Estop::callbackSendRawMessage(const mrs_msgs::SerialRawConstPtr &msg) {
+void Estop::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg) {
 
   if (!is_initialized_) {
     return;
@@ -426,7 +426,7 @@ void Estop::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t 
   if (checksum_correct) {
     received_msg_ok++;
   }
-  mrs_msgs::BacaProtocol msg;
+  mrs_modules_msgs::BacaProtocol msg;
   msg.stamp = ros::Time::now();
   for (uint8_t i = 0; i < payload_size; i++) {
     msg.payload.push_back(input_buffer[i]);
