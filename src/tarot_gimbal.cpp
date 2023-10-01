@@ -9,8 +9,8 @@
 #include <mutex>
 
 #include <mrs_msgs/SetInt.h>
+#include <mrs_msgs/GimbalState.h>
 
-#include <mrs_modules_msgs/TarotGimbalState.h>
 #include <mrs_modules_msgs/BacaProtocol.h>
 #include <mrs_modules_msgs/SerialRaw.h>
 
@@ -63,7 +63,7 @@ private:
   bool callbackOuster(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   void callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstPtr &msg);
-  void callbackSendCommand(const mrs_modules_msgs::TarotGimbalState &msg);
+  void callbackSendCommand(const mrs_msgs::GimbalState &msg);
 
   uint8_t connectToSensor(void);
   void    processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec, bool checksum_correct);
@@ -124,7 +124,7 @@ void TarotGimbal::onInit() {
 
   // Publishers
   baca_protocol_publisher_ = nh_.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
-  gimbal_status_publisher  = nh_.advertise<mrs_modules_msgs::TarotGimbalState>("gimbal_state", 1);
+  gimbal_status_publisher  = nh_.advertise<mrs_msgs::GimbalState>("gimbal_state", 1);
 
   raw_message_subscriber = nh_.subscribe("raw_in", 10, &TarotGimbal::callbackSendRawMessage, this, ros::TransportHints().tcpNoDelay());
 
@@ -225,7 +225,7 @@ void TarotGimbal::callbackSendRawMessage(const mrs_modules_msgs::SerialRawConstP
 
 /* callbackSendCommand() //{ */
 
-void TarotGimbal::callbackSendCommand(const mrs_modules_msgs::TarotGimbalState &msg) {
+void TarotGimbal::callbackSendCommand(const mrs_msgs::GimbalState &msg) {
 
   if (!is_initialized_) {
     return;
@@ -374,7 +374,7 @@ void TarotGimbal::processMessage(uint8_t payload_size, uint8_t *input_buffer, ui
       gimbal_is_on = true;
     }
 
-    mrs_modules_msgs::TarotGimbalState gimbal_msg;
+    mrs_msgs::GimbalState gimbal_msg;
 
     gimbal_msg.is_on           = gimbal_is_on;
     gimbal_msg.fpv_mode        = gimbal_mode;
