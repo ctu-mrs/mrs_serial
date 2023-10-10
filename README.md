@@ -1,7 +1,8 @@
 ## MRS serial protocol
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_serial/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_serial/actions) |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------|
+> :warning: **Attention please: This README is outdated.**
+>
+> The MRS UAV System 1.5 is being released and this page needs updating. Please, keep in mind that the information on this page might not be valid.
 
 Messages sent/received throuh the serial line consist of 8 bit values.
 The protocol for serial communication used at MRS (Baca protocol) is defined as follows:
@@ -101,7 +102,7 @@ void send_data(uint16_t data) {
 If the mrs_serial node is running, and it is connected to some device through the serial line,
 it will publish all the messages that are received through the serial line at a topic called
 ```
-/uav_name/mrs_serial/received_message
+/<UAV_NAME>/mrs_serial/received_message
 ```
 You can subscribe to this topic and interpret the received message in your node.
 The ROS message published by mrs_serial will have this structure (defined in mrs_msgs):
@@ -118,7 +119,7 @@ by default, mrs_serial will only publish messages with correct checksums, other 
 
 To send a message, publish it on the topic
 ```
-/uav_name/mrs_serial/send_message
+/<UAV_NAME>/mrs_serial/send_message
 ```
 the ROS message has the same structure as a received message:
 ```
@@ -167,6 +168,3 @@ uint8_t read_single() {
   }
 }
 ```
-
-
-
