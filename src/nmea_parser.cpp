@@ -273,7 +273,7 @@ void NmeaParser::processMessage() {
     ROS_ERROR("[Nmea parser]: exception caught during publishing");
   }
 
-
+  /* ROS_ERROR_STREAM("[NmeaParser]: msg" << msg_); */
   std::vector<std::string> results;
   boost::split(results, msg_, [](char c) { return c == ','; });  // split the input string into words and put them in results vector
 
@@ -347,6 +347,7 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   gpgga_msg.undulation       = stodSafe(results[11]);
   gpgga_msg.undulation_units = results[12];
 
+
   if (results[13] == "") {
     gpgga_msg.diff_age = 9999;
   } else {
@@ -369,7 +370,18 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   gpgga_msg.station_id = results2[0];
 
   bestpos_msg_.latitude               = gpgga_msg.latitude;
+
+  if (gpgga_msg.latitude_dir == "S") {
+   bestpos_msg_.latitude = -bestpos_msg_.latitude; 
+  }
+    
   bestpos_msg_.longitude              = gpgga_msg.longitude;
+
+  if (gpgga_msg.longitude_dir == "W") {
+   bestpos_msg_.longitude = -bestpos_msg_.longitude; 
+  }
+    
+
   bestpos_msg_.height                 = gpgga_msg.altitude;
   bestpos_msg_.undulation             = gpgga_msg.undulation;
   bestpos_msg_.diff_age               = gpgga_msg.diff_age;
