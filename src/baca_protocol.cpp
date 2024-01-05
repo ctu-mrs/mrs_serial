@@ -102,6 +102,7 @@ private:
 
   std::string portname_;
   int         baudrate_;
+  bool        raw_;
   std::string uav_name_;
   std::string garmin_A_frame_;
   std::string garmin_B_frame_;
@@ -128,6 +129,7 @@ void BacaProtocol::onInit() {
   nh_.param("uav_name", uav_name_, std::string("uav"));
   nh_.param("portname", portname_, std::string("/dev/ttyUSB0"));
   nh_.param("baudrate", baudrate_, 115200);
+  nh_.param("raw", raw_, true);
   nh_.param("publish_bad_checksum", publish_bad_checksum, false);
   nh_.param("simulate_fake_garmin", simulate_fake_garmin, false);
   nh_.param("use_timeout", use_timeout, true);
@@ -181,10 +183,9 @@ void BacaProtocol::callbackSerialTimer(const ros::TimerEvent &event) {
   int     bytes_read;
 
   bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
-
-
-  for (int i = 0; i < bytes_read; i++) {
-    interpretSerialData(read_buffer[i]);
+    
+    for (int i = 0; i < bytes_read; i++) {
+      interpretSerialData(read_buffer[i]);
   }
   /* processMessage */
 }
@@ -233,8 +234,8 @@ void BacaProtocol::callbackMaintainerTimer(const ros::TimerEvent &event) {
 
   if (is_connected_) {
 
-    ROS_INFO_STREAM("Got msgs - Garmin: " << received_msg_ok_garmin << " Generic msg: " << received_msg_ok << "  Wrong checksum: " << received_msg_bad_checksum
-                                          << "; in the last " << (ros::Time::now() - interval_).toSec() << " s");
+    /* ROS_INFO_STREAM("Got msgs - Garmin: " << received_msg_ok_garmin << " Generic msg: " << received_msg_ok << "  Wrong checksum: " << received_msg_bad_checksum */
+    /*                                       << "; in the last " << (ros::Time::now() - interval_).toSec() << " s"); */
     received_msg_ok_garmin    = 0;
     received_msg_ok           = 0;
     received_msg_bad_checksum = 0;
@@ -375,60 +376,61 @@ bool BacaProtocol::callbackSendIntRaw([[maybe_unused]] mrs_msgs::SetInt::Request
 
 void BacaProtocol::interpretSerialData(uint8_t single_character) {
 
-  static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE;
-  static uint8_t               payload_size = 0;
-  static uint8_t               input_buffer[BUFFER_SIZE];
-  static uint8_t               buffer_counter = 0;
-  static uint8_t               checksum       = 0;
+  /* static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE; */
+  /* static uint8_t               payload_size = 0; */
+  /* static uint8_t               input_buffer[BUFFER_SIZE]; */
+  /* static uint8_t               buffer_counter = 0; */
+  /* static uint8_t               checksum       = 0; */
+printf("%c", single_character);
 
-  switch (rec_state) {
-    case WAITING_FOR_MESSSAGE:
+  /* switch (rec_state) { */
+  /*   case WAITING_FOR_MESSSAGE: */
 
-      if (single_character == 'b' ||
-          single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b'
-        checksum       = single_character;
-        buffer_counter = 0;
-        rec_state      = EXPECTING_SIZE;
-      }
-      break;
+  /*     if (single_character == 'b' || */
+  /*         single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b' */
+  /*       checksum       = single_character; */
+  /*       buffer_counter = 0; */
+  /*       rec_state      = EXPECTING_SIZE; */
+  /*     } */
+  /*     break; */
 
-    case EXPECTING_SIZE:
+  /*   case EXPECTING_SIZE: */
 
-      if (single_character == 0) {
-        ROS_ERROR_THROTTLE(1.0, "[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str());
-        rec_state = WAITING_FOR_MESSSAGE;
-      } else {
-        payload_size = single_character;
-        checksum += single_character;
-        rec_state = EXPECTING_PAYLOAD;
-      }
-      break;
+  /*     if (single_character == 0) { */
+  /*       ROS_ERROR_THROTTLE(1.0, "[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str()); */
+  /*       rec_state = WAITING_FOR_MESSSAGE; */
+  /*     } else { */
+  /*       payload_size = single_character; */
+  /*       checksum += single_character; */
+  /*       rec_state = EXPECTING_PAYLOAD; */
+  /*     } */
+  /*     break; */
 
-    case EXPECTING_PAYLOAD:
+  /*   case EXPECTING_PAYLOAD: */
 
-      input_buffer[buffer_counter] = single_character;
-      checksum += single_character;
-      buffer_counter++;
-      if (buffer_counter >= payload_size) {
-        rec_state = EXPECTING_CHECKSUM;
-      }
-      break;
+  /*     input_buffer[buffer_counter] = single_character; */
+  /*     checksum += single_character; */
+  /*     buffer_counter++; */
+  /*     if (buffer_counter >= payload_size) { */
+  /*       rec_state = EXPECTING_CHECKSUM; */
+  /*     } */
+  /*     break; */
 
-    case EXPECTING_CHECKSUM:
+  /*   case EXPECTING_CHECKSUM: */
 
-      if (checksum == single_character) {
-        processMessage(payload_size, input_buffer, checksum, single_character, true);
-        last_received_ = ros::Time::now();
-        rec_state      = WAITING_FOR_MESSSAGE;
-      } else {
-        if (publish_bad_checksum) {
-          processMessage(payload_size, input_buffer, checksum, single_character, false);
-        }
-        received_msg_bad_checksum++;
-        rec_state = WAITING_FOR_MESSSAGE;
-      }
-      break;
-  }
+  /*     if (checksum == single_character) { */
+  /*       processMessage(payload_size, input_buffer, checksum, single_character, true); */
+  /*       last_received_ = ros::Time::now(); */
+  /*       rec_state      = WAITING_FOR_MESSSAGE; */
+  /*     } else { */
+  /*       if (publish_bad_checksum) { */
+  /*         processMessage(payload_size, input_buffer, checksum, single_character, false); */
+  /*       } */
+  /*       received_msg_bad_checksum++; */
+  /*       rec_state = WAITING_FOR_MESSSAGE; */
+  /*     } */
+  /*     break; */
+  /* } */
 }
 
 //}
