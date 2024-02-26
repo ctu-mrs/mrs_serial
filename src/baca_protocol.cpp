@@ -376,61 +376,61 @@ bool BacaProtocol::callbackSendIntRaw([[maybe_unused]] mrs_msgs::SetInt::Request
 
 void BacaProtocol::interpretSerialData(uint8_t single_character) {
 
-  /* static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE; */
-  /* static uint8_t               payload_size = 0; */
-  /* static uint8_t               input_buffer[BUFFER_SIZE]; */
-  /* static uint8_t               buffer_counter = 0; */
-  /* static uint8_t               checksum       = 0; */
-printf("%c", single_character);
+  static serial_receiver_state rec_state    = WAITING_FOR_MESSSAGE;
+  static uint8_t               payload_size = 0;
+  static uint8_t               input_buffer[BUFFER_SIZE];
+  static uint8_t               buffer_counter = 0;
+  static uint8_t               checksum       = 0;
+/* printf("%c", single_character); */
 
-  /* switch (rec_state) { */
-  /*   case WAITING_FOR_MESSSAGE: */
+  switch (rec_state) {
+    case WAITING_FOR_MESSSAGE:
 
-  /*     if (single_character == 'b' || */
-  /*         single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b' */
-  /*       checksum       = single_character; */
-  /*       buffer_counter = 0; */
-  /*       rec_state      = EXPECTING_SIZE; */
-  /*     } */
-  /*     break; */
+      if (single_character == 'b' ||
+          single_character == 'a') {  // the 'a' is there for backwards-compatibility, going forwards all messages should start with 'b'
+        checksum       = single_character;
+        buffer_counter = 0;
+        rec_state      = EXPECTING_SIZE;
+      }
+      break;
 
-  /*   case EXPECTING_SIZE: */
+    case EXPECTING_SIZE:
 
-  /*     if (single_character == 0) { */
-  /*       ROS_ERROR_THROTTLE(1.0, "[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str()); */
-  /*       rec_state = WAITING_FOR_MESSSAGE; */
-  /*     } else { */
-  /*       payload_size = single_character; */
-  /*       checksum += single_character; */
-  /*       rec_state = EXPECTING_PAYLOAD; */
-  /*     } */
-  /*     break; */
+      if (single_character == 0) {
+        ROS_ERROR_THROTTLE(1.0, "[%s]: Message with 0 payload_size received, discarding.", ros::this_node::getName().c_str());
+        rec_state = WAITING_FOR_MESSSAGE;
+      } else {
+        payload_size = single_character;
+        checksum += single_character;
+        rec_state = EXPECTING_PAYLOAD;
+      }
+      break;
 
-  /*   case EXPECTING_PAYLOAD: */
+    case EXPECTING_PAYLOAD:
 
-  /*     input_buffer[buffer_counter] = single_character; */
-  /*     checksum += single_character; */
-  /*     buffer_counter++; */
-  /*     if (buffer_counter >= payload_size) { */
-  /*       rec_state = EXPECTING_CHECKSUM; */
-  /*     } */
-  /*     break; */
+      input_buffer[buffer_counter] = single_character;
+      checksum += single_character;
+      buffer_counter++;
+      if (buffer_counter >= payload_size) {
+        rec_state = EXPECTING_CHECKSUM;
+      }
+      break;
 
-  /*   case EXPECTING_CHECKSUM: */
+    case EXPECTING_CHECKSUM:
 
-  /*     if (checksum == single_character) { */
-  /*       processMessage(payload_size, input_buffer, checksum, single_character, true); */
-  /*       last_received_ = ros::Time::now(); */
-  /*       rec_state      = WAITING_FOR_MESSSAGE; */
-  /*     } else { */
-  /*       if (publish_bad_checksum) { */
-  /*         processMessage(payload_size, input_buffer, checksum, single_character, false); */
-  /*       } */
-  /*       received_msg_bad_checksum++; */
-  /*       rec_state = WAITING_FOR_MESSSAGE; */
-  /*     } */
-  /*     break; */
-  /* } */
+      if (checksum == single_character) {
+        processMessage(payload_size, input_buffer, checksum, single_character, true);
+        last_received_ = ros::Time::now();
+        rec_state      = WAITING_FOR_MESSSAGE;
+      } else {
+        if (publish_bad_checksum) {
+          processMessage(payload_size, input_buffer, checksum, single_character, false);
+        }
+        received_msg_bad_checksum++;
+        rec_state = WAITING_FOR_MESSSAGE;
+      }
+      break;
+  }
 }
 
 //}
