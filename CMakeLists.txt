@@ -1,188 +1,35 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.8)
 project(mrs_serial)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-set(CATKIN_DEPENDENCIES
-  roscpp
-  cmake_modules
-  nodelet
-  sensor_msgs
-  mrs_msgs
-  mrs_modules_msgs
-  std_msgs
-  mrs_lib
-  dynamic_reconfigure
-  )
+# find dependencies
+find_package(ament_cmake REQUIRED)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS
-  ${CATKIN_DEPENDENCIES}
-  )
+add_executable(VoImu src/VoImu.cpp)
+target_include_directories(VoImu PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
+target_compile_features(VoImu PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-generate_dynamic_reconfigure_options(
-  config/gimbal.cfg
-  )
+install(TARGETS VoImu
+  DESTINATION lib/${PROJECT_NAME})
 
-set(LIBRARIES
-  MrsSerial_VioImu
-  MrsSerial_NmeaParser
-  MrsSerial_BacaProtocol
-  MrsSerial_Servo
-  MrsSerial_Led
-  MrsSerial_Estop
-  MrsSerial_Ultrasound
-  MrsSerial_TarotGimbal
-  MrsSerial_Gimbal
-  )
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES ${LIBRARIES}
-  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
-  )
-
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
-  )
-
-# Eagle
-
-add_library(Eagle
-  src/eagle.cpp
-  src/serial_port.cpp
-  )
-
-# MrsSerial_VioImu
-
-add_library(MrsSerial_VioImu
-  src/vio_imu.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_VioImu
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_NmeaParser
-
-add_library(MrsSerial_NmeaParser
-  src/nmea_parser.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_NmeaParser
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_BacaProtocol
-
-add_library(MrsSerial_BacaProtocol
-  src/baca_protocol.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_BacaProtocol
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_Servo
-
-add_library(MrsSerial_Servo
-  src/servo.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_Servo
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_Led
-
-add_library(MrsSerial_Led
-  src/led.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_Led
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_Estop
-
-add_library(MrsSerial_Estop
-  src/estop.cpp
-  src/serial_port.cpp
-  )
-
-target_link_libraries(MrsSerial_Estop
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_Ultrasound
-
-add_library(MrsSerial_Ultrasound
-  src/ultrasound.cpp
-  src/serial_port.cpp)
-
-target_link_libraries(MrsSerial_Ultrasound
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_TarotGimbal
-
-add_library(MrsSerial_TarotGimbal
-  src/tarot_gimbal.cpp
-  src/serial_port.cpp)
-
-target_link_libraries(MrsSerial_TarotGimbal
-  ${catkin_LIBRARIES}
-  )
-
-# MrsSerial_Gimbal
-
-add_library(MrsSerial_Gimbal
-  src/gimbal.cpp
-  src/serial_port.cpp
-  src/SBGC_lib/SBGC_cmd_helpers.cpp
-  include/gimbal.hpp
-  )
-
-add_dependencies(MrsSerial_Gimbal
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  ${PROJECT_NAME}_gencfg
-  )
-
-target_link_libraries(MrsSerial_Gimbal
-  ${catkin_LIBRARIES}
-  )
-
-## --------------------------------------------------------------
-## |                           Install                          |
-## --------------------------------------------------------------
-
-install(TARGETS ${LIBRARIES}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-  )
-
-install(DIRECTORY launch config rviz
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
-
-install(DIRECTORY tmux_scripts
-  USE_SOURCE_PERMISSIONS
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
-
-install(DIRECTORY include
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-)
-
-install(FILES nodelets.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
+ament_package()
