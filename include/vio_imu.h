@@ -72,7 +72,6 @@ private:
     uint16_t received_msg_bad_checksum = 0;
 
     int serial_rate_ = 5000;
-    //int serial_buffer_size_ = 32;
 
     std::string _portname_;
     int baudrate_;
