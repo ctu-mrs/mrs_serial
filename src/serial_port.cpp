@@ -1,4 +1,4 @@
-#include "serial_port.h"
+#include <mrs_serial/serial_port.h>
 
 namespace serial_port {
 

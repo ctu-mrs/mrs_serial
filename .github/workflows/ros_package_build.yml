@@ -1,4 +1,4 @@
-name: ros_package_build_with_docker
+name: ros_package_build
 
 on:
 
@@ -17,7 +17,7 @@ concurrency:
 jobs:
 
   build:
-    uses: ctu-mrs/ci_scripts/.github/workflows/ros_package_build_with_docker.yml@ros2
+    uses: ctu-mrs/ci_scripts/.github/workflows/ros_package_build.yml@ros2
     secrets:
       PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
       DOCKERHUB: ${{ secrets.DOCKERHUB }}

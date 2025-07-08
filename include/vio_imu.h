@@ -5,19 +5,16 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.h>
-#include <mutex>
 #include <string>
 #include <functional>
 
-#include "mrs_lib/param_loader.h"
+#include <mrs_lib/param_loader.h>
 #include <mrs_msgs/srv/set_int.hpp>
-#include "serial_port.h"
+#include <mrs_serial/serial_port.h>
 #include <mrs_lib/timer_handler.h>
 #include <mrs_lib/publisher_handler.h>
 
 #include "mrs_lib/service_server_handler.h"
-
-#include <sstream>
 
 #define BUFFER_SIZE 256
 #define MAXIMAL_TIME_INTERVAL 1

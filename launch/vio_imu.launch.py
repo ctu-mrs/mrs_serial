@@ -87,7 +87,7 @@ def generate_launch_description():
     # Create the node
     vio_imu_node = Node(
         package='mrs_serial',  # Assuming this is the package name for the nodelet
-        executable='vio_imu',  # ROS2 executable name
+        executable='MrsSerial_VioImu',  # ROS2 executable name
         name='vio_imu',
         namespace=uav_name,
         parameters=parameters + [
