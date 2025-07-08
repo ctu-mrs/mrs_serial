@@ -29,7 +29,6 @@ class VioImu : public rclcpp::Node {
 
 public:
     VioImu();
-    //virtual void onInit();
 
 private:
     enum serial_receiver_state {
@@ -52,6 +51,11 @@ private:
     uint8_t connectToSensor(void);
 
     void changeFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+    void changeCamFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+    void changeGyroUIFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+    void changeAccUIFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+    void changeGyroFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+    void changeAccFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
 
     // Message processing
     void processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec,
@@ -65,6 +69,11 @@ private:
     mrs_lib::PublisherHandler<sensor_msgs::msg::Imu> imu_publisher_sync_;
 
     mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_frequency;
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_camera_frequency;
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_gyro_ui;
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_accel_ui;
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_gyro_filter;
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_accel_filter;
 
     // Serial port
     serial_port::SerialPort serial_port_;

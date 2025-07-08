@@ -45,17 +45,50 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
     connectToSensor();
 
-    // service_frequency = nh_.advertiseService("change_frequency", &VioImu::changeFrequency, this);
-    // service_camera_frequency = nh_.advertiseService("change_camera_frequency", &VioImu::changeCamFrequency, this);
-    // service_gyro_ui = nh_.advertiseService("change_gyro_ui_filter", &VioImu::changeGyroUIFilter, this);
-    // service_accel_ui = nh_.advertiseService("change_acc_ui_filter", &VioImu::changeAccUIFilter, this);
-    // service_gyro_filter = nh_.advertiseService("change_gyro_filter", &VioImu::changeGyroFilter, this);
-    // service_accel_filter = nh_.advertiseService("change_acc_filter", &VioImu::changeAccFilter, this);
-
     service_frequency = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
         nh_, 
         std::string("change_frequency"), 
         std::bind(&VioImu::changeFrequency, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
+    service_camera_frequency = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_camera_frequency"), 
+        std::bind(&VioImu::changeCamFrequency, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
+    service_gyro_ui = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_gyro_ui_filter"), 
+        std::bind(&VioImu::changeGyroUIFilter, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
+    service_accel_ui = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_acc_ui_filter"), 
+        std::bind(&VioImu::changeAccUIFilter, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
+    service_gyro_filter = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_gyro_filter"), 
+        std::bind(&VioImu::changeGyroFilter, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
+    service_accel_filter = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_acc_filter"), 
+        std::bind(&VioImu::changeAccFilter, this, std::placeholders::_1, std::placeholders::_2),
         rclcpp::SystemDefaultsQoS(),  // QoS parameter
         nullptr  // callback group
     );
@@ -254,163 +287,166 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // | ------------------------ services ------------------------ |
 
-// /* changeGyroFilter() //{ */
-
-//     bool VioImu::changeGyroUIFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         if (req.value < 1 || req.value > 3) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x01%05ld", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             ROS_INFO("[%s] : change gyro UI filter to %ld order", nh_->get_name(), req.value);
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
-
-// //}
-
-// /* changeAccFilter() //{ */
-
-//     bool VioImu::changeAccUIFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         if (req.value < 1 || req.value > 3) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x02%05ld", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             ROS_INFO("[%s] : change accelerometer UI filter to %ld order", nh_->get_name(),
-//                      req.value);
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
-
-//}
-
-// /* changeFrequency() //{ */
-
-    void VioImu::changeFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
-        if (!is_initialized_) {
-            res->success = false;
-            res->message = "changeFrequency service: not initialized yet";
-            RCLCPP_WARN(get_logger(), res->message.c_str());
-            return;
-        }
-        unsigned int max_val = 99999;
-        if (req->value > max_val) {
-            res->success = false;
-            std::ostringstream oss;
-            oss << "changeFrequency service: invalid value - it is greater than " << max_val;
-            res->message = oss.str();
-            RCLCPP_WARN(get_logger(), res->message.c_str());
-            return;
-        }
-        char msg[8];
-        sprintf(msg, "b\x03%05zu", req->value);
-        if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-            RCLCPP_INFO(get_logger(), "[%s] : changed samples frequency to %ld", nh_->get_name(), req->value);
-            res->success = true;
-            res->message = "Done";
-            return;
-        } else {
-            res->success = false;
-            res->message = "Fail";
-            return;
-        }
+void VioImu::changeGyroUIFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
     }
+    if (req->value < 1 || req->value > 3) {
+        res->success = false;
+        res->message = "invalid value - not between 1 and 3 ";
+        RCLCPP_ERROR(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x01%05ld", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        RCLCPP_INFO(get_logger(), "[%s] : change gyro UI filter to %ld order", nh_->get_name(), req->value);
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
-// //}
+void VioImu::changeAccUIFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
+    }
+    if (req->value < 1 || req->value > 3) {
+        res->success = false;
+        res->message = "invalid value - not between 1 and 3 ";
+        RCLCPP_ERROR(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x02%05ld", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        RCLCPP_INFO(get_logger(), "[%s] : change accelerometer UI filter to %ld order", nh_->get_name(),
+                    req->value);
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
-// /* changeCamFrequency() //{ */
+void VioImu::changeFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
+    }
+    unsigned int max_val = 99999;
+    if (req->value > max_val) {
+        res->success = false;
+        std::ostringstream oss;
+        oss << "invalid value - it is greater than " << max_val;
+        res->message = oss.str();
+        RCLCPP_ERROR(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x03%05zu", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        RCLCPP_INFO(get_logger(), "[%s] : changed samples frequency to %ld", nh_->get_name(), req->value);
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
-//     bool VioImu::changeCamFrequency(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         if (req.value > 99999) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x04%05zu", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             ROS_INFO("[%s] : changed camera frequency to %ld", nh_->get_name(), req.value);
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
+void VioImu::changeCamFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
+    }
+    unsigned int max_val = 99999;
+    if (req->value > max_val) {
+        res->success = false;
+        std::ostringstream oss;
+        oss << "invalid value - it is greater than " << max_val;
+        res->message = oss.str();
+        RCLCPP_ERROR(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x04%05zu", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        RCLCPP_INFO(get_logger(), "[%s] : changed camera frequency to %ld", nh_->get_name(), req->value);
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
-// //}
+void VioImu::changeGyroFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x05%05ld", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        auto turn = [](int a) -> std::string { if (a == 1) return "on"; else if (a == 0) return "off"; return "";};
+        RCLCPP_INFO(get_logger(), "[%s] : turn %s gyro filters", nh_->get_name(),
+                    turn(req->value).c_str());
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
-// /* changeGyroFilter() //{ */
-
-//     bool VioImu::changeGyroFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x05%05ld", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             auto turn = [](int a) -> std::string { if (a == 1) return "on"; else if (a == 0) return "off"; return "";};
-//             ROS_INFO("[%s] : turn %s gyro filters", nh_->get_name(),
-//                      turn(req.value).c_str());
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
-
-// //}
-
-// /* changeAccFilter() //{ */
-
-//     bool VioImu::changeAccFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x06%05ld", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             auto turn = [](int a) -> std::string { if (a == 1) return "on"; else if (a == 0) return "off"; return "";};
-//             ROS_INFO("[%s] : turn %s accelerometer filters", nh_->get_name(),
-//                      turn(req.value).c_str());
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
-
-// //}
+void VioImu::changeAccFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+    if (!is_initialized_) {
+        res->success = false;
+        res->message = "not initialized yet";
+        RCLCPP_WARN(get_logger(), res->message.c_str());
+        return;
+    }
+    char msg[8];
+    sprintf(msg, "b\x06%05ld", req->value);
+    if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+        auto turn = [](int a) -> std::string { if (a == 1) return "on"; else if (a == 0) return "off"; return "";};
+        RCLCPP_INFO(get_logger(), "[%s] : turn %s accelerometer filters", nh_->get_name(),
+                    turn(req->value).c_str());
+        res->success = true;
+        res->message = "Done";
+        return;
+    } else {
+        res->success = false;
+        res->message = "Fail";
+        return;
+    }
+}
 
 
 }  // namespace vio_imu
