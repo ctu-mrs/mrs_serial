@@ -17,6 +17,7 @@
 
 #define BUFFER_SIZE 256
 #define MAXIMAL_TIME_INTERVAL 1
+#define SERIAL_BUFFER_SIZE 32   // This is replacement ofthe serial_buffer_size_ variable in the header. I do not know why there was second buffer length in the first place...
 
 namespace vio_imu {
 
@@ -24,7 +25,7 @@ class VioImu : public rclcpp::Node {
 
 public:
     VioImu();
-    virtual void onInit();
+    //virtual void onInit();
 
 private:
     enum serial_receiver_state {
@@ -71,7 +72,7 @@ private:
     uint16_t received_msg_bad_checksum = 0;
 
     int serial_rate_ = 5000;
-    int serial_buffer_size_ = 32;
+    //int serial_buffer_size_ = 32;
 
     std::string _portname_;
     int baudrate_;

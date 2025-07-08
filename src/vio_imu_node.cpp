@@ -4,7 +4,7 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     
     auto node = std::make_shared<vio_imu::VioImu>();
-    node->onInit();
+    //node->onInit();
     
     rclcpp::spin(node);
     rclcpp::shutdown();

@@ -131,69 +131,120 @@ namespace vio_imu {
 
 // Constructor implementation
 VioImu::VioImu() : rclcpp::Node("vio_imu") {
-    nh_ = shared_from_this();
+    nh_ = std::shared_ptr<rclcpp::Node>(this);
     serial_port_.set_node(nh_);
     
     // Initialize timing members here
     interval_ = nh_->get_clock()->now();
     last_received_ = nh_->get_clock()->now();
+
+    // Get paramters
+    //nh_ = std::make_shared<rclcpp::Node>("vio_imu");
+    //rclcpp::Time::waitForValid();
+
+    // | ---------------------- Param loader ---------------------- |
+
+    mrs_lib::ParamLoader param_loader(nh_, "VioImu");
+
+    param_loader.loadParam("uav_name", _uav_name_);
+    param_loader.loadParam("portname", _portname_, std::string("/dev/ttyUSB0"));
+    param_loader.loadParam("baudrate", baudrate_);
+    param_loader.loadParam("use_timeout", _use_timeout_, true);
+    param_loader.loadParam("serial_rate", serial_rate_, 460800);
+    param_loader.loadParam("verbose", _verbose_, true);
+
+    if (!param_loader.loadedSuccessfully()) {
+        RCLCPP_ERROR(nh_->get_logger(), "[Status]: Could not load all parameters!");
+        rclcpp::shutdown();
+    } else {
+        RCLCPP_INFO(nh_->get_logger(), "[Status]: All params loaded!");
+    }
+
+    // | ---------------------------------------------------------- |
+
+    // imu_publisher_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw", 1);
+    imu_publisher_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw");
+    // imu_publisher_sync_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw_synchronized", 1);
+    imu_publisher_sync_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw_synchronized");
+
+    // Output loaded parameters to console for double checking
+    RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] is up and running with the following parameters:",
+                        nh_->get_name());
+    RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] portname: %s", nh_->get_name(), _portname_.c_str());
+    RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] baudrate: %i", nh_->get_name(), baudrate_);
+
+    connectToSensor();
+
+    // service_frequency = nh_.advertiseService("change_frequency", &VioImu::changeFrequency, this);
+    // service_camera_frequency = nh_.advertiseService("change_camera_frequency", &VioImu::changeCamFrequency, this);
+    // service_gyro_ui = nh_.advertiseService("change_gyro_ui_filter", &VioImu::changeGyroUIFilter, this);
+    // service_accel_ui = nh_.advertiseService("change_acc_ui_filter", &VioImu::changeAccUIFilter, this);
+    // service_gyro_filter = nh_.advertiseService("change_gyro_filter", &VioImu::changeGyroFilter, this);
+    // service_accel_filter = nh_.advertiseService("change_acc_filter", &VioImu::changeAccFilter, this);
+
+    //serial_timer_ = nh_.createTimer(ros::Rate(serial_rate_), &VioImu::callbackSerialTimer, this);
+    serial_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(serial_rate_, nh_->get_clock()), std::bind(&VioImu::callbackSerialTimer, this));
+    //maintainer_timer_ = nh_.createTimer(ros::Rate(1), &VioImu::callbackMaintainerTimer, this);
+    maintainer_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(1, nh_->get_clock()), std::bind(&VioImu::callbackMaintainerTimer, this));
+
+    is_initialized_ = true;
 }
 
 /* onInit() //{ */
 
-    void VioImu::onInit() {
+    //void VioImu::onInit() {
 
-        // Get paramters
-        //nh_ = std::make_shared<rclcpp::Node>("vio_imu");
-        //rclcpp::Time::waitForValid();
+        // // Get paramters
+        // //nh_ = std::make_shared<rclcpp::Node>("vio_imu");
+        // //rclcpp::Time::waitForValid();
 
-        // | ---------------------- Param loader ---------------------- |
+        // // | ---------------------- Param loader ---------------------- |
 
-        mrs_lib::ParamLoader param_loader(nh_, "VioImu");
+        // mrs_lib::ParamLoader param_loader(nh_, "VioImu");
 
-        param_loader.loadParam("uav_name", _uav_name_);
-        param_loader.loadParam("portname", _portname_, std::string("/dev/ttyUSB0"));
-        param_loader.loadParam("baudrate", baudrate_);
-        param_loader.loadParam("use_timeout", _use_timeout_, true);
-        param_loader.loadParam("serial_rate", serial_rate_, 460800);
-        param_loader.loadParam("verbose", _verbose_, true);
+        // param_loader.loadParam("uav_name", _uav_name_);
+        // param_loader.loadParam("portname", _portname_, std::string("/dev/ttyUSB0"));
+        // param_loader.loadParam("baudrate", baudrate_);
+        // param_loader.loadParam("use_timeout", _use_timeout_, true);
+        // param_loader.loadParam("serial_rate", serial_rate_, 460800);
+        // param_loader.loadParam("verbose", _verbose_, true);
 
-        if (!param_loader.loadedSuccessfully()) {
-            RCLCPP_ERROR(nh_->get_logger(), "[Status]: Could not load all parameters!");
-            rclcpp::shutdown();
-        } else {
-            RCLCPP_INFO(nh_->get_logger(), "[Status]: All params loaded!");
-        }
+        // if (!param_loader.loadedSuccessfully()) {
+        //     RCLCPP_ERROR(nh_->get_logger(), "[Status]: Could not load all parameters!");
+        //     rclcpp::shutdown();
+        // } else {
+        //     RCLCPP_INFO(nh_->get_logger(), "[Status]: All params loaded!");
+        // }
 
-        // | ---------------------------------------------------------- |
+        // // | ---------------------------------------------------------- |
 
-        // imu_publisher_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw", 1);
-        imu_publisher_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw");
-        // imu_publisher_sync_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw_synchronized", 1);
-        imu_publisher_sync_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw_synchronized");
+        // // imu_publisher_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw", 1);
+        // imu_publisher_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw");
+        // // imu_publisher_sync_ = nh_.advertise<sensor_msgs::msg::Imu>("imu_raw_synchronized", 1);
+        // imu_publisher_sync_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw_synchronized");
 
-        // Output loaded parameters to console for double checking
-        RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] is up and running with the following parameters:",
-                          nh_->get_name());
-        RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] portname: %s", nh_->get_name(), _portname_.c_str());
-        RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] baudrate: %i", nh_->get_name(), baudrate_);
+        // // Output loaded parameters to console for double checking
+        // RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] is up and running with the following parameters:",
+        //                   nh_->get_name());
+        // RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] portname: %s", nh_->get_name(), _portname_.c_str());
+        // RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] baudrate: %i", nh_->get_name(), baudrate_);
 
-        connectToSensor();
+        // connectToSensor();
 
-        // service_frequency = nh_.advertiseService("change_frequency", &VioImu::changeFrequency, this);
-        // service_camera_frequency = nh_.advertiseService("change_camera_frequency", &VioImu::changeCamFrequency, this);
-        // service_gyro_ui = nh_.advertiseService("change_gyro_ui_filter", &VioImu::changeGyroUIFilter, this);
-        // service_accel_ui = nh_.advertiseService("change_acc_ui_filter", &VioImu::changeAccUIFilter, this);
-        // service_gyro_filter = nh_.advertiseService("change_gyro_filter", &VioImu::changeGyroFilter, this);
-        // service_accel_filter = nh_.advertiseService("change_acc_filter", &VioImu::changeAccFilter, this);
+        // // service_frequency = nh_.advertiseService("change_frequency", &VioImu::changeFrequency, this);
+        // // service_camera_frequency = nh_.advertiseService("change_camera_frequency", &VioImu::changeCamFrequency, this);
+        // // service_gyro_ui = nh_.advertiseService("change_gyro_ui_filter", &VioImu::changeGyroUIFilter, this);
+        // // service_accel_ui = nh_.advertiseService("change_acc_ui_filter", &VioImu::changeAccUIFilter, this);
+        // // service_gyro_filter = nh_.advertiseService("change_gyro_filter", &VioImu::changeGyroFilter, this);
+        // // service_accel_filter = nh_.advertiseService("change_acc_filter", &VioImu::changeAccFilter, this);
 
-        //serial_timer_ = nh_.createTimer(ros::Rate(serial_rate_), &VioImu::callbackSerialTimer, this);
-        serial_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(serial_rate_, nh_->get_clock()), std::bind(&VioImu::callbackSerialTimer, this));
-        //maintainer_timer_ = nh_.createTimer(ros::Rate(1), &VioImu::callbackMaintainerTimer, this);
-        maintainer_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(1, nh_->get_clock()), std::bind(&VioImu::callbackMaintainerTimer, this));
+        // //serial_timer_ = nh_.createTimer(ros::Rate(serial_rate_), &VioImu::callbackSerialTimer, this);
+        // serial_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(serial_rate_, nh_->get_clock()), std::bind(&VioImu::callbackSerialTimer, this));
+        // //maintainer_timer_ = nh_.createTimer(ros::Rate(1), &VioImu::callbackMaintainerTimer, this);
+        // maintainer_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(1, nh_->get_clock()), std::bind(&VioImu::callbackMaintainerTimer, this));
 
-        is_initialized_ = true;
-    }
+        // is_initialized_ = true;
+    //}
 //}
 
 
@@ -205,10 +256,10 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
     void VioImu::callbackSerialTimer() {
 
-        uint8_t read_buffer[serial_buffer_size_];
+        uint8_t read_buffer[SERIAL_BUFFER_SIZE];
         int bytes_read;
 
-        bytes_read = serial_port_.readSerial(read_buffer, serial_buffer_size_);
+        bytes_read = serial_port_.readSerial(read_buffer, SERIAL_BUFFER_SIZE);
 
         for (int i = 0; i < bytes_read; i++) {
             interpretSerialData(read_buffer[i]);
