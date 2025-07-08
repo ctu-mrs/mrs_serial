@@ -52,6 +52,14 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
     // service_gyro_filter = nh_.advertiseService("change_gyro_filter", &VioImu::changeGyroFilter, this);
     // service_accel_filter = nh_.advertiseService("change_acc_filter", &VioImu::changeAccFilter, this);
 
+    service_frequency = mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt>(
+        nh_, 
+        std::string("change_frequency"), 
+        std::bind(&VioImu::changeFrequency, this, std::placeholders::_1, std::placeholders::_2),
+        rclcpp::SystemDefaultsQoS(),  // QoS parameter
+        nullptr  // callback group
+    );
+
     serial_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(serial_rate_, nh_->get_clock()), std::bind(&VioImu::callbackSerialTimer, this));
     maintainer_timer_ = std::make_shared<mrs_lib::ROSTimer>(nh_, rclcpp::Rate(1, nh_->get_clock()), std::bind(&VioImu::callbackMaintainerTimer, this));
 
@@ -125,8 +133,8 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
         static uint8_t buffer_counter = 0;
         static uint8_t checksum = 0;
 
-        if (_verbose_)
-            RCLCPP_INFO_STREAM_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1000, "[VioImu]: receiving IMU ok");
+        //if (_verbose_)
+        //    RCLCPP_INFO_STREAM_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1000, "[VioImu]: receiving IMU ok");
 
         switch (rec_state) {
             case WAITING_FOR_MESSSAGE:
@@ -248,7 +256,7 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // /* changeGyroFilter() //{ */
 
-//     bool VioImu::changeGyroUIFilter(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+//     bool VioImu::changeGyroUIFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
 //         if (!is_initialized_) {
 //             return false;
 //         }
@@ -273,7 +281,7 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // /* changeAccFilter() //{ */
 
-//     bool VioImu::changeAccUIFilter(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+//     bool VioImu::changeAccUIFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
 //         if (!is_initialized_) {
 //             return false;
 //         }
@@ -299,32 +307,41 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // /* changeFrequency() //{ */
 
-//     bool VioImu::changeFrequency(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
-//         if (!is_initialized_) {
-//             return false;
-//         }
-//         if (req.value > 99999) {
-//             return false;
-//         }
-//         char msg[8];
-//         sprintf(msg, "b\x03%05zu", req.value);
-//         if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
-//             ROS_INFO("[%s] : changed samples frequency to %ld", nh_->get_name(), req.value);
-//             res.success = true;
-//             res.message = "Done";
-//             return true;
-//         } else {
-//             res.success = false;
-//             res.message = "Fail";
-//             return false;
-//         }
-//     }
+    void VioImu::changeFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res) {
+        if (!is_initialized_) {
+            res->success = false;
+            res->message = "changeFrequency service: not initialized yet";
+            RCLCPP_WARN(get_logger(), res->message.c_str());
+            return;
+        }
+        unsigned int max_val = 99999;
+        if (req->value > max_val) {
+            res->success = false;
+            std::ostringstream oss;
+            oss << "changeFrequency service: invalid value - it is greater than " << max_val;
+            res->message = oss.str();
+            RCLCPP_WARN(get_logger(), res->message.c_str());
+            return;
+        }
+        char msg[8];
+        sprintf(msg, "b\x03%05zu", req->value);
+        if (serial_port_.sendCharArray(reinterpret_cast<uint8_t *>(msg), sizeof(msg))) {
+            RCLCPP_INFO(get_logger(), "[%s] : changed samples frequency to %ld", nh_->get_name(), req->value);
+            res->success = true;
+            res->message = "Done";
+            return;
+        } else {
+            res->success = false;
+            res->message = "Fail";
+            return;
+        }
+    }
 
 // //}
 
 // /* changeCamFrequency() //{ */
 
-//     bool VioImu::changeCamFrequency(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+//     bool VioImu::changeCamFrequency(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
 //         if (!is_initialized_) {
 //             return false;
 //         }
@@ -349,7 +366,7 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // /* changeGyroFilter() //{ */
 
-//     bool VioImu::changeGyroFilter(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+//     bool VioImu::changeGyroFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
 //         if (!is_initialized_) {
 //             return false;
 //         }
@@ -373,7 +390,7 @@ VioImu::VioImu() : rclcpp::Node("vio_imu") {
 
 // /* changeAccFilter() //{ */
 
-//     bool VioImu::changeAccFilter(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res) {
+//     bool VioImu::changeAccFilter(mrs_msgs::srv::SetInt::Request &req, mrs_msgs::srv::SetInt::Response &res) {
 //         if (!is_initialized_) {
 //             return false;
 //         }

@@ -15,6 +15,10 @@
 #include <mrs_lib/timer_handler.h>
 #include <mrs_lib/publisher_handler.h>
 
+#include "mrs_lib/service_server_handler.h"
+
+#include <sstream>
+
 #define BUFFER_SIZE 256
 #define MAXIMAL_TIME_INTERVAL 1
 #define SERIAL_BUFFER_SIZE 32   // This is replacement ofthe serial_buffer_size_ variable in the header. I do not know why there was second buffer length in the first place...
@@ -47,6 +51,8 @@ private:
     // Sensor connection
     uint8_t connectToSensor(void);
 
+    void changeFrequency(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req, std::shared_ptr<mrs_msgs::srv::SetInt::Response> res);
+
     // Message processing
     void processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec,
                         bool checksum_correct);
@@ -57,6 +63,8 @@ private:
     // Publishers
     mrs_lib::PublisherHandler<sensor_msgs::msg::Imu> imu_publisher_;
     mrs_lib::PublisherHandler<sensor_msgs::msg::Imu> imu_publisher_sync_;
+
+    mrs_lib::ServiceServerHandler<mrs_msgs::srv::SetInt> service_frequency;
 
     // Serial port
     serial_port::SerialPort serial_port_;
