@@ -86,6 +86,11 @@ install(TARGETS
   RUNTIME DESTINATION bin
   )
 
+install(
+  DIRECTORY include
+  DESTINATION .
+  )
+
 install(TARGETS ${EXECUTABLES}
   DESTINATION lib/${PROJECT_NAME}
   )
