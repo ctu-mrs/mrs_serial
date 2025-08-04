@@ -50,7 +50,7 @@ include_directories(
 
 # Eagle
 
-add_library(Eagle
+add_library(MrsSerial_Eagle
   src/eagle.cpp
   src/serial_port.cpp
   )

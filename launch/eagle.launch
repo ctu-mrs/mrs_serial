@@ -1,7 +1,7 @@
 <launch>
 
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
-  <arg name="name" default="" />
+  <arg name="name" />
   <arg name="portname" default="/dev/arduino" />
   <!-- baudrate: 9600 19200 38400 57600 115200 230400 460800 500000 576000 921600-->
   <arg name="baudrate" default="115200" /> 
@@ -26,7 +26,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the nodelet -->
-    <node pkg="nodelet" type="nodelet" name="net" args="$(arg nodelet) eagle/Eagle $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+    <node pkg="nodelet" type="nodelet" name="$(arg name)" args="$(arg nodelet) eagle/Eagle $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
