@@ -6,7 +6,7 @@ const double DEG2RAD = 57.2958;
 namespace vio_imu {
 
 // Constructor implementation
-VioImu::VioImu() : rclcpp::Node("vio_imu") {
+VioImu::VioImu(const rclcpp::NodeOptions & options) : rclcpp::Node("vio_imu", options) {
     nh_ = std::shared_ptr<rclcpp::Node>(this);
     serial_port_.set_node(nh_);
     
@@ -451,4 +451,5 @@ void VioImu::changeAccFilter(std::shared_ptr<mrs_msgs::srv::SetInt::Request> req
 
 }  // namespace vio_imu
 
-//PLUGINLIB_EXPORT_CLASS(vio_imu::VioImu, nodelet::Nodelet);
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(vio_imu::VioImu)

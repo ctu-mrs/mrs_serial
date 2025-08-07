@@ -25,7 +25,7 @@ namespace vio_imu {
 class VioImu : public rclcpp::Node {
 
 public:
-    VioImu();
+    VioImu(const rclcpp::NodeOptions & options);
 
 private:
     enum serial_receiver_state {

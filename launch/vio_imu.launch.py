@@ -6,6 +6,8 @@ from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
@@ -69,6 +71,8 @@ def generate_launch_description():
         {'portname': portname},
         {'baudrate': baudrate},
         {'verbose': verbose},
+        #{'use_timeout': True},
+        #{'serial_rate': 460800}
     ]
     
     # Add default config file
@@ -80,39 +84,72 @@ def generate_launch_description():
     # parameters.append(mrs_serial_config)
     
     # Add custom config conditionally
-    custom_config_param = PythonExpression([
-        '"', custom_config, '" if "', custom_config, '" != "" else ""'
-    ])
+    # custom_config_param = PythonExpression([
+    #     '"', custom_config, '" if "', custom_config, '" != "" else ""'
+    # ])
     
-    # Create the node
-    vio_imu_node = Node(
-        package='mrs_serial',  # Assuming this is the package name for the nodelet
-        executable='MrsSerial_VioImu',  # ROS2 executable name
-        name='vio_imu',
-        namespace=uav_name,
-        parameters=parameters + [
-            # Add custom config if provided
-            PythonExpression([
-                '{"custom_config": "', custom_config, '"}',
-                ' if "', custom_config, '" != "" else {}'
-            ])
-        ],
-        remappings=[
-            ('~/profiler', 'profiler'),
-            ('~/baca_protocol_out', '~/received_message'),
-            ('~/baca_protocol_in', '~/send_message'),
-            ('~/raw_in', '~/send_raw_message'),
-        ],
-        output='screen',
-        #prefix="xterm -e gdb -ex=r --args",
-        condition=IfCondition(PythonExpression([
-            'True'  # Always launch in ROS2, nodelet concept doesn't apply
-        ]))
-    )
+    # # Create the node
+    # vio_imu_node = Node(
+    #     package='mrs_serial',  # Assuming this is the package name for the nodelet
+    #     executable='MrsSerial_VioImu',  # ROS2 executable name
+    #     name='vio_imu',
+    #     namespace=uav_name,
+    #     parameters=parameters + [
+    #         # Add custom config if provided
+    #         PythonExpression([
+    #             '{"custom_config": "', custom_config, '"}',
+    #             ' if "', custom_config, '" != "" else {}'
+    #         ])
+    #     ],
+    #     remappings=[
+    #         ('~/profiler', 'profiler'),
+    #         ('~/baca_protocol_out', '~/received_message'),
+    #         ('~/baca_protocol_in', '~/send_message'),
+    #         ('~/raw_in', '~/send_raw_message'),
+    #     ],
+    #     output='screen',
+    #     #prefix="xterm -e gdb -ex=r --args",
+    #     condition=IfCondition(PythonExpression([
+    #         'True'  # Always launch in ROS2, nodelet concept doesn't apply
+    #     ]))
+    # )
     
-    # Group the node under the UAV namespace
-    vio_imu_group = GroupAction(
-        actions=[vio_imu_node]
+    # parameters += [
+    #     # Add custom config if provided
+    #     PythonExpression([
+    #         '{"custom_config": "', custom_config, '"}',
+    #         ' if "', custom_config, '" != "" else ""'
+    #     ])
+    # ],
+    
+    # if _custom_config_file != '':
+    #     print("appending params")
+    #     parameters.append(_custom_config_file)
+    
+    vio_imu_node = ComposableNodeContainer(
+        name='vio_imu_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container',
+        respawn=False,
+        #prefix='xterm -e gdb -ex run --args',
+        #arguments=['--ros-args', '--log-level', "info"],
+        composable_node_descriptions=[
+            ComposableNode(
+                package='mrs_serial',
+                plugin='vio_imu::VioImu',  # Assuming the nodelet is converted to a regular node
+                name='vio_imu',
+                namespace=uav_name,
+                #output='screen',
+                parameters=parameters,
+                remappings=[
+                    ('~/profiler', 'profiler'),
+                    ('~/baca_protocol_out', '~/received_message'),
+                    ('~/baca_protocol_in', '~/send_message'),
+                    ('~/raw_in', '~/send_raw_message'),
+                ],
+            ),
+        ]
     )
     
     return LaunchDescription([
@@ -123,5 +160,5 @@ def generate_launch_description():
         verbose_arg,
         custom_config_arg,
         debug_arg,
-        vio_imu_group,
+        vio_imu_node
     ])

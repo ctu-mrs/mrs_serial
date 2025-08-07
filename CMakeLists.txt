@@ -23,11 +23,12 @@ set(DEPENDENCIES
 
 set(LIBRARIES
   MrsSerial_SerialPort
+  MrsSerial_VioImu_component
   )
 
-set(EXECUTABLES
-  MrsSerial_VioImu
-  )
+#set(EXECUTABLES
+#  MrsSerial_VioImu
+#  )
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
@@ -55,18 +56,24 @@ ament_target_dependencies(MrsSerial_SerialPort
 
 ## | ------------------------- VIO IMU ------------------------ |
 
-add_executable(MrsSerial_VioImu
-  src/vio_imu_node.cpp
+add_library(MrsSerial_VioImu_component SHARED
+  #src/vio_imu_node.cpp
   src/vio_imu.cpp
 )
 
-target_compile_features(MrsSerial_VioImu PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(MrsSerial_VioImu_component PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-target_link_libraries(MrsSerial_VioImu
+target_link_libraries(MrsSerial_VioImu_component
   MrsSerial_SerialPort
 )
 
-ament_target_dependencies(MrsSerial_VioImu
+rclcpp_components_register_node(
+    MrsSerial_VioImu_component
+    PLUGIN "vio_imu::VioImu"
+    EXECUTABLE MrsSerial_VioImu
+)
+
+ament_target_dependencies(MrsSerial_VioImu_component
   ${DEPENDENCIES}
 )
 
@@ -91,26 +98,14 @@ install(
   DESTINATION .
   )
 
-install(TARGETS ${EXECUTABLES}
-  DESTINATION lib/${PROJECT_NAME}
-  )
+#install(TARGETS ${EXECUTABLES}
+#  DESTINATION lib/${PROJECT_NAME}
+#  )
 
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
-
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
 
 ament_export_include_directories(
   include
