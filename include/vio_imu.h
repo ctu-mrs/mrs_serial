@@ -91,6 +91,10 @@ private:
     int baudrate_;
     std::string _uav_name_;
 
+    unsigned int message_counter;
+    unsigned int skip_factor;
+    int desired_publish_rate;
+
     // Timing
     rclcpp::Time interval_;
     rclcpp::Time last_received_;

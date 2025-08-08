@@ -73,6 +73,7 @@ def generate_launch_description():
         {'verbose': verbose},
         #{'use_timeout': True},
         #{'serial_rate': 460800}
+        {'desired_publish_rate': 1000}   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
     
     # Add default config file
@@ -128,7 +129,7 @@ def generate_launch_description():
     
     vio_imu_node = ComposableNodeContainer(
         name='vio_imu_container',
-        namespace='',
+        namespace=uav_name,
         package='rclcpp_components',
         executable='component_container',
         respawn=False,

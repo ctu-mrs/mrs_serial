@@ -24,6 +24,9 @@ VioImu::VioImu(const rclcpp::NodeOptions & options) : rclcpp::Node("vio_imu", op
     param_loader.loadParam("use_timeout", _use_timeout_, true);
     param_loader.loadParam("serial_rate", serial_rate_, 460800);
     param_loader.loadParam("verbose", _verbose_, true);
+    param_loader.loadParam("desired_publish_rate", desired_publish_rate, 200);
+
+    skip_factor = 1000/(desired_publish_rate);
 
     if (!param_loader.loadedSuccessfully()) {
         RCLCPP_ERROR(nh_->get_logger(), "[Status]: Could not load all parameters!");
@@ -225,6 +228,9 @@ VioImu::VioImu(const rclcpp::NodeOptions & options) : rclcpp::Node("vio_imu", op
 
     void VioImu::processMessage(uint8_t payload_size, uint8_t *input_buffer, uint8_t checksum, uint8_t checksum_rec,
                                 bool checksum_correct) {
+        message_counter++;
+        if(message_counter % skip_factor) return;
+
         (void)checksum; (void)checksum_rec; // suppressing 'unused parameter' warning
 
         if (payload_size == 13 && (input_buffer[0] == 0x30 || input_buffer[0] == 0x31) && checksum_correct) {
