@@ -14,14 +14,15 @@ def generate_launch_description():
     # Declare launch arguments
     uav_name_arg = DeclareLaunchArgument(
         'UAV_NAME',
-        default_value=EnvironmentVariable('UAV_NAME', default_value='uav'),
+        default_value=EnvironmentVariable('UAV_NAME'),
         description='UAV name'
     )
     
     portname_arg = DeclareLaunchArgument(
         'portname',
         #default_value='/dev/vio_imu',
-        default_value='/dev/ttyACM0',
+        #default_value='/dev/ttyACM0',
+        default_value='/dev/bluefox_imu',
         description='Port name for IMU device'
     )
     
