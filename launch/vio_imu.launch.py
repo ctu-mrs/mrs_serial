@@ -58,7 +58,7 @@ def generate_launch_description():
     
     desired_publish_rate_arg = DeclareLaunchArgument(
         'desired_publish_rate',
-        default_value=1000
+        default_value='200'
     )
     
     # Get launch configurations
