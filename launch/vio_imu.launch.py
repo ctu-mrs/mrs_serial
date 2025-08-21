@@ -56,6 +56,11 @@ def generate_launch_description():
         description='Enable debug mode'
     )
     
+    desired_publish_rate_arg = DeclareLaunchArgument(
+        'desired_publish_rate',
+        default_value=1000
+    )
+    
     # Get launch configurations
     uav_name = LaunchConfiguration('UAV_NAME')
     portname = LaunchConfiguration('portname')
@@ -64,6 +69,7 @@ def generate_launch_description():
     verbose = LaunchConfiguration('verbose')
     custom_config = LaunchConfiguration('custom_config')
     debug = LaunchConfiguration('DEBUG')
+    desired_publish_rate = LaunchConfiguration('desired_publish_rate')
     
     # Build parameters dictionary
     parameters = [
@@ -74,7 +80,7 @@ def generate_launch_description():
         {'verbose': verbose},
         #{'use_timeout': True},
         #{'serial_rate': 460800}
-        {'desired_publish_rate': 1000}   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
+        {'desired_publish_rate': desired_publish_rate}   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
     
     # Add default config file
@@ -162,5 +168,6 @@ def generate_launch_description():
         verbose_arg,
         custom_config_arg,
         debug_arg,
+        desired_publish_rate_arg,
         vio_imu_node
     ])
