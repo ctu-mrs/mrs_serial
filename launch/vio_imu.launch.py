@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, EnvironmentVariable, PythonExpression
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
@@ -9,7 +9,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
-def generate_launch_description():
+def create_launch_description(context):
     # Declare launch arguments
     uav_name_arg = DeclareLaunchArgument(
         'UAV_NAME',
@@ -19,7 +19,6 @@ def generate_launch_description():
     
     portname_arg = DeclareLaunchArgument(
         'portname',
-        #default_value='/dev/vio_imu',
         #default_value='/dev/ttyACM0',
         default_value='/dev/bluefox_imu',
         description='Port name for IMU device'
@@ -41,12 +40,6 @@ def generate_launch_description():
         'verbose',
         default_value='true',
         description='Enable verbose output'
-    )
-    
-    custom_config_arg = DeclareLaunchArgument(
-        'custom_config',
-        default_value='',
-        description='Custom configuration file path'
     )
     
     debug_arg = DeclareLaunchArgument(
@@ -79,8 +72,13 @@ def generate_launch_description():
         {'verbose': verbose},
         #{'use_timeout': True},
         #{'serial_rate': 460800}
-        {'desired_publish_rate': desired_publish_rate}   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
+        {'desired_publish_rate': desired_publish_rate},   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
+    
+    if custom_config.perform(context) != "":
+        parameters += [
+            custom_config
+        ]
     
     vio_imu_node = ComposableNodeContainer(
         name='vio_imu_container',
@@ -89,14 +87,12 @@ def generate_launch_description():
         executable='component_container',
         respawn=False,
         #prefix='xterm -e gdb -ex run --args',
-        #arguments=['--ros-args', '--log-level', "info"],
         composable_node_descriptions=[
             ComposableNode(
                 package='mrs_serial',
                 plugin='vio_imu::VioImu',  # Assuming the nodelet is converted to a regular node
                 name='vio_imu',
                 namespace=uav_name,
-                #output='screen',
                 parameters=parameters,
                 remappings=[
                     ('~/profiler', 'profiler'),
@@ -108,14 +104,23 @@ def generate_launch_description():
         ]
     )
     
-    return LaunchDescription([
+    return [
         uav_name_arg,
         portname_arg,
         baudrate_arg,
         profiler_arg,
         verbose_arg,
-        custom_config_arg,
         debug_arg,
         desired_publish_rate_arg,
         vio_imu_node
+    ]
+    
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'custom_config',
+            default_value='',
+            description='Custom configuration file path'
+        ),
+        OpaqueFunction(function=create_launch_description)
     ])
