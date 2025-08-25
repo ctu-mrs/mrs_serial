@@ -37,8 +37,8 @@ VioImu::VioImu(const rclcpp::NodeOptions & options) : rclcpp::Node("vio_imu", op
 
     // | ---------------------------------------------------------- |
 
-    imu_publisher_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw");
-    imu_publisher_sync_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "/imu_raw_synchronized");
+    imu_publisher_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "imu_raw");
+    imu_publisher_sync_ = mrs_lib::PublisherHandler<sensor_msgs::msg::Imu>(nh_, "imu_raw_synchronized");
 
     // Output loaded parameters to console for double checking
     RCLCPP_INFO_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 1, "[%s] is up and running with the following parameters:",

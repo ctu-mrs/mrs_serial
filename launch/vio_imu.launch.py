@@ -9,7 +9,6 @@ from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
-
 def generate_launch_description():
     # Declare launch arguments
     uav_name_arg = DeclareLaunchArgument(
@@ -82,57 +81,6 @@ def generate_launch_description():
         #{'serial_rate': 460800}
         {'desired_publish_rate': desired_publish_rate}   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
-    
-    # Add default config file
-    # mrs_serial_config = os.path.join(
-    #     get_package_share_directory('mrs_serial'),
-    #     'config',
-    #     'imu_default.yaml'
-    # )
-    # parameters.append(mrs_serial_config)
-    
-    # Add custom config conditionally
-    # custom_config_param = PythonExpression([
-    #     '"', custom_config, '" if "', custom_config, '" != "" else ""'
-    # ])
-    
-    # # Create the node
-    # vio_imu_node = Node(
-    #     package='mrs_serial',  # Assuming this is the package name for the nodelet
-    #     executable='MrsSerial_VioImu',  # ROS2 executable name
-    #     name='vio_imu',
-    #     namespace=uav_name,
-    #     parameters=parameters + [
-    #         # Add custom config if provided
-    #         PythonExpression([
-    #             '{"custom_config": "', custom_config, '"}',
-    #             ' if "', custom_config, '" != "" else {}'
-    #         ])
-    #     ],
-    #     remappings=[
-    #         ('~/profiler', 'profiler'),
-    #         ('~/baca_protocol_out', '~/received_message'),
-    #         ('~/baca_protocol_in', '~/send_message'),
-    #         ('~/raw_in', '~/send_raw_message'),
-    #     ],
-    #     output='screen',
-    #     #prefix="xterm -e gdb -ex=r --args",
-    #     condition=IfCondition(PythonExpression([
-    #         'True'  # Always launch in ROS2, nodelet concept doesn't apply
-    #     ]))
-    # )
-    
-    # parameters += [
-    #     # Add custom config if provided
-    #     PythonExpression([
-    #         '{"custom_config": "', custom_config, '"}',
-    #         ' if "', custom_config, '" != "" else ""'
-    #     ])
-    # ],
-    
-    # if _custom_config_file != '':
-    #     print("appending params")
-    #     parameters.append(_custom_config_file)
     
     vio_imu_node = ComposableNodeContainer(
         name='vio_imu_container',
