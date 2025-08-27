@@ -3,7 +3,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, EnvironmentVariable, PythonExpression
 from launch.conditions import IfCondition, UnlessCondition
-from launch_ros.actions import Node
+from launch_ros.actions import Node, LoadComposableNodes
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import ComposableNodeContainer
@@ -53,6 +53,16 @@ def create_launch_description(context):
         default_value='200'
     )
     
+    standalone_arg = DeclareLaunchArgument(
+        'standalone',
+        default_value='true'
+    )
+    
+    container_id_arg = DeclareLaunchArgument(
+        'container_id',
+        default_value='',
+    )
+    
     # Get launch configurations
     uav_name = LaunchConfiguration('UAV_NAME')
     portname = LaunchConfiguration('portname')
@@ -70,8 +80,8 @@ def create_launch_description(context):
         {'portname': portname},
         {'baudrate': baudrate},
         {'verbose': verbose},
-        #{'use_timeout': True},
-        #{'serial_rate': 460800}
+        #{'use_timeout': False},
+        #{'serial_rate': 460800},
         {'desired_publish_rate': desired_publish_rate},   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
     
@@ -79,29 +89,36 @@ def create_launch_description(context):
         parameters += [
             custom_config
         ]
+        
+    imu_node = ComposableNode(
+        package='mrs_serial',
+        plugin='vio_imu::VioImu',  # Assuming the nodelet is converted to a regular node
+        name='vio_imu',
+        namespace=uav_name,
+        parameters=parameters,
+        remappings=[
+            ('~/profiler', 'profiler'),
+            ('~/baca_protocol_out', '~/received_message'),
+            ('~/baca_protocol_in', '~/send_message'),
+            ('~/raw_in', '~/send_raw_message'),
+        ],
+    )
+    
+    loader = LoadComposableNodes(
+        condition=UnlessCondition(LaunchConfiguration('standalone')),
+        composable_node_descriptions=[imu_node],
+        target_container=LaunchConfiguration('container_id'),
+    )
     
     vio_imu_node = ComposableNodeContainer(
+        condition=IfCondition(LaunchConfiguration('standalone')),
         name='vio_imu_container',
         namespace=uav_name,
         package='rclcpp_components',
         executable='component_container',
         respawn=False,
         #prefix='xterm -e gdb -ex run --args',
-        composable_node_descriptions=[
-            ComposableNode(
-                package='mrs_serial',
-                plugin='vio_imu::VioImu',  # Assuming the nodelet is converted to a regular node
-                name='vio_imu',
-                namespace=uav_name,
-                parameters=parameters,
-                remappings=[
-                    ('~/profiler', 'profiler'),
-                    ('~/baca_protocol_out', '~/received_message'),
-                    ('~/baca_protocol_in', '~/send_message'),
-                    ('~/raw_in', '~/send_raw_message'),
-                ],
-            ),
-        ]
+        composable_node_descriptions=[imu_node]
     )
     
     return [
@@ -112,6 +129,9 @@ def create_launch_description(context):
         verbose_arg,
         debug_arg,
         desired_publish_rate_arg,
+        standalone_arg,
+        container_id_arg,
+        loader,
         vio_imu_node
     ]
     
