@@ -330,6 +330,10 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
   gpgga_msg.latitude     = stodSafe(sub_s1) + stodSafe(sub_s2) / 60;
   gpgga_msg.latitude_dir = results[3];
 
+  if (results[3] == "S") {
+    gpgga_msg.latitude *= -1;
+  }
+
   std::string lon = results[4];
   if (lon != "") {
     sub_s3 = lon.substr(0, 3);
@@ -338,6 +342,11 @@ void NmeaParser::processGPGGA(std::vector<std::string>& results) {
 
   gpgga_msg.longitude        = stodSafe(sub_s3) + stodSafe(sub_s4) / 60;
   gpgga_msg.longitude_dir    = results[5];
+
+  if (results[5] == "W") {
+    gpgga_msg.longitude *= -1;
+  }
+
   gps_status.quality         = stoiSafe(results[6]);
   gpgga_msg.gps_quality      = gps_status;
   gpgga_msg.num_sats         = stoiSafe(results[7]);
