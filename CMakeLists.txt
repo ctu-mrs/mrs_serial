@@ -34,6 +34,7 @@ set(LIBRARIES
   MrsSerial_Ultrasound
   MrsSerial_TarotGimbal
   MrsSerial_Gimbal
+  MrsSerial_Eagle
   )
 
 catkin_package(
@@ -50,7 +51,7 @@ include_directories(
 
 # Eagle
 
-add_library(Eagle
+add_library(MrsSerial_Eagle
   src/eagle.cpp
   src/serial_port.cpp
   )
