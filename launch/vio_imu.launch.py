@@ -19,8 +19,7 @@ def create_launch_description(context):
 
     portname_arg = DeclareLaunchArgument(
         'portname',
-        #default_value='/dev/ttyACM0',
-        default_value='/dev/bluefox_imu',
+        default_value='/dev/vio_imu',
         description='Port name for IMU device'
     )
 
