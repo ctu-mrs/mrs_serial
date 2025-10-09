@@ -16,53 +16,53 @@ def create_launch_description(context):
         default_value=EnvironmentVariable('UAV_NAME'),
         description='UAV name'
     )
-    
+
     portname_arg = DeclareLaunchArgument(
         'portname',
         #default_value='/dev/ttyACM0',
         default_value='/dev/bluefox_imu',
         description='Port name for IMU device'
     )
-    
+
     baudrate_arg = DeclareLaunchArgument(
         'baudrate',
         default_value='460800',
         description='Serial port speed'
     )
-    
+
     profiler_arg = DeclareLaunchArgument(
         'profiler',
         default_value=EnvironmentVariable('PROFILER', default_value='false'),
         description='Enable profiler'
     )
-    
+
     verbose_arg = DeclareLaunchArgument(
         'verbose',
         default_value='true',
         description='Enable verbose output'
     )
-    
+
     debug_arg = DeclareLaunchArgument(
         'DEBUG',
         default_value='false',
         description='Enable debug mode'
     )
-    
+
     desired_publish_rate_arg = DeclareLaunchArgument(
         'desired_publish_rate',
         default_value='200'
     )
-    
+
     standalone_arg = DeclareLaunchArgument(
         'standalone',
         default_value='true'
     )
-    
+
     container_id_arg = DeclareLaunchArgument(
         'container_id',
         default_value='',
     )
-    
+
     # Get launch configurations
     uav_name = LaunchConfiguration('UAV_NAME')
     portname = LaunchConfiguration('portname')
@@ -72,7 +72,7 @@ def create_launch_description(context):
     custom_config = LaunchConfiguration('custom_config')
     debug = LaunchConfiguration('DEBUG')
     desired_publish_rate = LaunchConfiguration('desired_publish_rate')
-    
+
     # Build parameters dictionary
     parameters = [
         {'uav_name': uav_name},
@@ -84,12 +84,12 @@ def create_launch_description(context):
         #{'serial_rate': 460800},
         {'desired_publish_rate': desired_publish_rate},   # skip_rate = int(1000/desired_publish_rate)..... 100, 200, 500, 1000
     ]
-    
+
     if custom_config.perform(context) != "":
         parameters += [
             custom_config
         ]
-        
+
     imu_node = ComposableNode(
         package='mrs_serial',
         plugin='vio_imu::VioImu',  # Assuming the nodelet is converted to a regular node
@@ -97,19 +97,23 @@ def create_launch_description(context):
         namespace=uav_name,
         parameters=parameters,
         remappings=[
-            ('~/profiler', 'profiler'),
-            ('~/baca_protocol_out', '~/received_message'),
+            # subscribers
             ('~/baca_protocol_in', '~/send_message'),
             ('~/raw_in', '~/send_raw_message'),
+            # publishers
+            ('~/baca_protocol_out', '~/received_message'),
+            ('~/imu_raw_out', '~/imu_raw'),
+            ('~/imu_raw_synchronized_out', '~/imu_raw_synchronized'),
+            ('~/profiler', 'profiler'),
         ],
     )
-    
+
     loader = LoadComposableNodes(
         condition=UnlessCondition(LaunchConfiguration('standalone')),
         composable_node_descriptions=[imu_node],
         target_container=LaunchConfiguration('container_id'),
     )
-    
+
     vio_imu_node = ComposableNodeContainer(
         condition=IfCondition(LaunchConfiguration('standalone')),
         name='vio_imu_container',
@@ -120,7 +124,7 @@ def create_launch_description(context):
         #prefix='xterm -e gdb -ex run --args',
         composable_node_descriptions=[imu_node]
     )
-    
+
     return [
         uav_name_arg,
         portname_arg,
@@ -134,7 +138,7 @@ def create_launch_description(context):
         loader,
         vio_imu_node
     ]
-    
+
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
