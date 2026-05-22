@@ -19,6 +19,8 @@ set(DEPENDENCIES
   mrs_lib
   mrs_msgs
   rcl_interfaces
+  type_description_interfaces
+  class_loader
   )
 
 set(LIBRARIES
@@ -50,8 +52,13 @@ add_library(MrsSerial_SerialPort SHARED
   src/serial_port.cpp
   )
 
-ament_target_dependencies(MrsSerial_SerialPort
-  ${DEPENDENCIES}
+target_link_libraries(MrsSerial_SerialPort
+  rclcpp::rclcpp
+  ${rcl_interfaces_TARGETS}
+  ${type_description_interfaces_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+  ${mrs_lib_TARGETS}
 )
 
 ## | ------------------------- VIO IMU ------------------------ |
@@ -65,6 +72,7 @@ target_compile_features(MrsSerial_VioImu_component PUBLIC c_std_99 cxx_std_17)  
 
 target_link_libraries(MrsSerial_VioImu_component
   MrsSerial_SerialPort
+  class_loader::class_loader
 )
 
 rclcpp_components_register_node(
@@ -73,9 +81,6 @@ rclcpp_components_register_node(
     EXECUTABLE MrsSerial_VioImu
 )
 
-ament_target_dependencies(MrsSerial_VioImu_component
-  ${DEPENDENCIES}
-)
 
 ## --------------------------------------------------------------
 ## |                           Testing                          |
