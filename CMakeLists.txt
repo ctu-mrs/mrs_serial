@@ -70,7 +70,7 @@ target_compile_features(MrsSerial_VioImu_component PUBLIC c_std_99 cxx_std_17)  
 
 target_link_libraries(MrsSerial_VioImu_component
   MrsSerial_SerialPort
-  class_loader::class_loader
+  rclcpp_components::component
 )
 
 rclcpp_components_register_node(
