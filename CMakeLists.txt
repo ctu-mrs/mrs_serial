@@ -56,7 +56,7 @@ target_link_libraries(MrsSerial_SerialPort
   ${type_description_interfaces_TARGETS}
   ${sensor_msgs_TARGETS}
   ${std_srvs_TARGETS}
-  ${mrs_lib_TARGETS}
+  mrs_lib::mrs_lib
 )
 
 ## | ------------------------- VIO IMU ------------------------ |
