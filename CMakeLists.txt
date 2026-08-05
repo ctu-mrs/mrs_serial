@@ -19,8 +19,6 @@ set(DEPENDENCIES
   mrs_lib
   mrs_msgs
   rcl_interfaces
-  type_description_interfaces
-  class_loader
   )
 
 set(LIBRARIES
