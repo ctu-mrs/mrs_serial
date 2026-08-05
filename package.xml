@@ -20,9 +20,6 @@
   <depend>mrs_lib</depend>
   <depend>mrs_msgs</depend>
   <depend>rclcpp_components</depend>
-  <depend>type_description_interfaces</depend>
-
-  <depend>class_loader</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
