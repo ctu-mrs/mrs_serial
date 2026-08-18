@@ -19,6 +19,7 @@
   <depend>std_srvs</depend>
   <depend>mrs_lib</depend>
   <depend>mrs_msgs</depend>
+  <depend>mrs_modules_msgs</depend>
   <depend>rclcpp_components</depend>
 
   <export>

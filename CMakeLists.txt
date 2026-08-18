@@ -18,12 +18,14 @@ set(DEPENDENCIES
   std_srvs
   mrs_lib
   mrs_msgs
+  mrs_modules_msgs
   rcl_interfaces
   )
 
 set(LIBRARIES
   MrsSerial_SerialPort
   MrsSerial_VioImu_component
+  MrsSerial_BacaProtocol_component
   )
 
 #set(EXECUTABLES
@@ -77,6 +79,26 @@ rclcpp_components_register_node(
     MrsSerial_VioImu_component
     PLUGIN "vio_imu::VioImu"
     EXECUTABLE MrsSerial_VioImu
+)
+
+## ---------------------- Baca Protocol ----------------------- |
+
+add_library(MrsSerial_BacaProtocol_component SHARED
+  src/baca_protocol.cpp
+)
+
+target_compile_features(MrsSerial_BacaProtocol_component PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
+target_link_libraries(MrsSerial_BacaProtocol_component
+  MrsSerial_SerialPort
+  rclcpp_components::component
+  ${mrs_modules_msgs_TARGETS}
+)
+
+rclcpp_components_register_node(
+    MrsSerial_BacaProtocol_component
+    PLUGIN "baca_protocol::BacaProtocol"
+    EXECUTABLE MrsSerial_BacaProtocol
 )
 
 
